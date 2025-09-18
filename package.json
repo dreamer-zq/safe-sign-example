@@ -1,0 +1,30 @@
+{
+  "name": "safe-sign-example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "send-transactions": "node --loader ts-node/esm src/send-transactions.ts",
+    "dev": "node --loader ts-node/esm src/send-transactions.ts",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "@safe-global/sdk-starter-kit": "^3.0.1",
+    "dotenv": "^16.3.1",
+    "viem": "^2.30.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ignition": "^3.0.3",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.0",
+    "@types/node": "^22.18.6",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
+    "hardhat": "^3.0.6",
+    "ts-node": "^10.9.0",
+    "typescript": "~5.8.0"
+  }
+}
