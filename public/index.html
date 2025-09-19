@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safe Multi-Signature Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Safe Multi-Signature Manager</h1>
+            <p>Manage your Safe multi-signature transactions</p>
+        </header>
+
+        <!-- Configuration Section -->
+        <section class="config-section">
+            <h2>Configuration</h2>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label for="txServiceUrl">Transaction Service URL:</label>
+                    <input type="text" id="txServiceUrl" placeholder="http://localhost:8000/api/" value="http://localhost:8000/api/">
+                </div>
+                <div class="config-item">
+                    <label for="rpcUrl">RPC URL:</label>
+                    <input type="text" id="rpcUrl" placeholder="https://sepolia.infura.io/v3/...">
+                </div>
+                <div class="config-item">
+                    <label for="privateKey">Private Key:</label>
+                    <input type="password" id="privateKey" placeholder="0x...">
+                </div>
+                <div class="config-item">
+                    <label for="safeAddress">Safe Address:</label>
+                    <input type="text" id="safeAddress" placeholder="0x...">
+                </div>
+                <div class="config-item">
+                    <label for="networkPreset">Network Preset:</label>
+                    <select id="networkPreset" onchange="safeManager.setNetworkPreset(this.value)">
+                        <option value="">Select Network Preset</option>
+                        <option value="mainnet">Ethereum Mainnet</option>
+                        <option value="polygon">Polygon</option>
+                        <option value="arbitrum">Arbitrum One</option>
+                        <option value="optimism">Optimism</option>
+                        <option value="sepolia">Sepolia Testnet</option>
+                        <option value="local">Local Development</option>
+                    </select>
+                </div>
+            </div>
+            <div class="config-actions">
+                <button id="saveConfig" class="btn btn-primary">Save Configuration</button>
+                <button id="loadConfig" class="btn btn-secondary">Load Configuration</button>
+            </div>
+        </section>
+
+        <!-- Status Section -->
+        <section class="status-section">
+            <h2>Safe Status</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="status-label">Safe Address:</span>
+                    <span id="currentSafeAddress" class="status-value">Not connected</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Is Deployed:</span>
+                    <span id="isDeployed" class="status-value">Unknown</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Signer Address:</span>
+                    <span id="signerAddress" class="status-value">Not connected</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Signer Balance:</span>
+                    <span id="signerBalance" class="status-value">0 ETH</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Connection Status:</span>
+                    <span id="connectionStatus" class="status-value">Disconnected</span>
+                </div>
+            </div>
+            <button id="connectSafe" class="btn btn-primary">Connect to Safe</button>
+        </section>
+
+        <!-- Pending Transactions Section -->
+        <section class="transactions-section">
+            <div class="section-header">
+                <h2>Pending Transactions</h2>
+                <button id="refreshTransactions" class="btn btn-secondary">Refresh</button>
+            </div>
+            <div id="transactionsContainer" class="transactions-container scrollable-container">
+                <div class="no-transactions">
+                    <p>No pending transactions found</p>
+                </div>
+            </div>
+        </section>
+
+
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <!-- Transaction Details Modal -->
+    <div id="transactionModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Transaction Details</h3>
+                <button class="modal-close" onclick="safeManager.closeTransactionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="transactionDetailsContent">
+                    <!-- Transaction details will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="safeManager.closeTransactionModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Display -->
+    <div id="errorDisplay" class="error-display hidden">
+        <div class="error-content">
+            <span class="error-icon">⚠️</span>
+            <span id="errorMessage" class="error-message"></span>
+            <button class="error-close" onclick="hideError()">&times;</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>

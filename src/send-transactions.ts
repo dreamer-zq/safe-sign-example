@@ -95,14 +95,14 @@ async function main() {
 
     const txResult = await send()
 
-    if (threshold > 1) {
-        await confirm(txResult, OWNER_2_PRIVATE_KEY)
-    }
+    // if (threshold > 1) {
+        // await confirm(txResult, OWNER_2_PRIVATE_KEY)
+    // }
 
-    //@ts-ignore-next-line
-    if (threshold > 2) {
-        await confirm(txResult, OWNER_3_PRIVATE_KEY)
-    }
+    // //@ts-ignore-next-line
+    // if (threshold > 2) {
+    //     await confirm(txResult, OWNER_3_PRIVATE_KEY)
+    // }
 }
 
 main()

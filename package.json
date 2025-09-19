@@ -7,7 +7,9 @@
   "scripts": {
     "send-transactions": "node --loader ts-node/esm src/send-transactions.ts",
     "dev": "node --loader ts-node/esm src/send-transactions.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "serve": "python3 -m http.server 8080 --directory public",
+    "start": "npm run serve"
   },
   "keywords": [],
   "author": "",
