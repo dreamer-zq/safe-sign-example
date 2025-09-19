@@ -759,15 +759,45 @@ class SafeManager {
         const safeAddress = document.getElementById('safeAddress').value;
         const privateKey = document.getElementById('privateKey').value;
         
-        document.getElementById('currentSafeAddress').textContent = safeAddress || 'Not connected';
+        // Update Safe address with truncation
+        const currentSafeAddressElement = document.getElementById('currentSafeAddress');
+        if (safeAddress && safeAddress.startsWith('0x')) {
+            currentSafeAddressElement.innerHTML = this.createTruncatedAddress(safeAddress);
+        } else {
+            currentSafeAddressElement.textContent = 'Not connected';
+        }
+        
         document.getElementById('isDeployed').textContent = safeInfo ? 'Yes' : 'Unknown';
         
+        // Update signer address with truncation
+        const signerAddressElement = document.getElementById('signerAddress');
         if (privateKey) {
             const signerAddress = this.getSignerAddressFromPrivateKey(privateKey);
-            document.getElementById('signerAddress').textContent = signerAddress;
+            if (signerAddress && signerAddress.startsWith('0x')) {
+                signerAddressElement.innerHTML = this.createTruncatedAddress(signerAddress);
+            } else {
+                signerAddressElement.textContent = signerAddress;
+            }
         } else {
-            document.getElementById('signerAddress').textContent = 'Not connected';
+            signerAddressElement.textContent = 'Not connected';
         }
+    }
+
+    /**
+     * Create truncated address display with hover tooltip
+     * @param {string} address - Full address to truncate
+     * @returns {string} HTML string for truncated address
+     */
+    createTruncatedAddress(address) {
+        if (!address || !address.startsWith('0x') || address.length < 10) {
+            return address;
+        }
+        
+        const truncated = `${address.slice(0, 6)}...${address.slice(-6)}`;
+        return `<span class="address-truncated">
+            ${truncated}
+            <span class="full-address">${address}</span>
+        </span>`;
     }
 
     getSignerAddressFromPrivateKey(privateKey) {
@@ -842,19 +872,22 @@ class SafeManager {
 
             // Fetching pending transactions from Safe service...
             const transactions = await this.safeClient.getPendingTransactions();
+            console.log('Debug: Raw transactions from API:', transactions);
             
             if (Array.isArray(transactions)) {
                 this.pendingTransactions = transactions.filter(tx => {
-                    return tx && tx.safeTxHash && !tx.isExecuted;
+                    return tx && !tx.isExecuted;
                 });
             } else if (transactions && transactions.results) {
                 this.pendingTransactions = transactions.results.filter(tx => {
-                    return tx && tx.safeTxHash && !tx.isExecuted;
+                    return tx && !tx.isExecuted;
                 });
             } else {
                 // Unexpected response format from Safe service
                 this.pendingTransactions = [];
             }
+            
+            console.log('Debug: Filtered pending transactions:', this.pendingTransactions);
 
             this.renderPendingTransactions();
             console.log(`Found ${this.pendingTransactions.length} pending transactions`);
@@ -884,6 +917,9 @@ class SafeManager {
             this.pendingTransactions = [];
         }
 
+        // Debug: log pending transactions
+        console.log('Debug: pendingTransactions:', this.pendingTransactions);
+
         if (this.pendingTransactions.length === 0) {
             container.innerHTML = `
                 <div class="no-transactions">
@@ -899,7 +935,7 @@ class SafeManager {
         try {
             // Filter out any invalid transactions before rendering
             const validTransactions = this.pendingTransactions.filter(tx => {
-                return tx && typeof tx === 'object' && tx.safeTxHash;
+                return tx && typeof tx === 'object';
             });
 
             if (validTransactions.length === 0) {
@@ -915,10 +951,14 @@ class SafeManager {
 
             // Limit to 3 transactions for display, but keep all for scrolling
             const transactionsToRender = validTransactions;
+            console.log('Debug: About to render', transactionsToRender.length, 'transactions');
             
-            container.innerHTML = transactionsToRender.map(tx => {
+            const renderedCards = transactionsToRender.map((tx, index) => {
                 try {
-                    return this.renderTransactionCard(tx);
+                    console.log(`Debug: Rendering transaction ${index}:`, tx);
+                    const cardHtml = this.renderTransactionCard(tx);
+                    console.log(`Debug: Generated HTML for transaction ${index}:`, cardHtml.substring(0, 200) + '...');
+                    return cardHtml;
                 } catch (error) {
                     console.error('Error rendering transaction card:', error, tx);
                     return `
@@ -930,7 +970,10 @@ class SafeManager {
                         </div>
                     `;
                 }
-            }).join('');
+            });
+            
+            container.innerHTML = renderedCards.join('');
+            console.log('Debug: Final container HTML:', container.innerHTML.substring(0, 500) + '...');
         } catch (error) {
             console.error('Error rendering transactions:', error);
             container.innerHTML = `
@@ -948,7 +991,7 @@ class SafeManager {
      */
     renderTransactionCard(transaction) {
         // Add null checks for required fields
-        if (!transaction || !transaction.safeTxHash) {
+        if (!transaction) {
             console.warn('Invalid transaction data:', transaction);
             return `
                 <div class="transaction-card fade-in">
@@ -1025,11 +1068,9 @@ class SafeManager {
                             Execute Transaction
                         </button>
                     ` : ''}
-                    ${transaction.safeTxHash ? `
-                        <button class="btn btn-secondary" onclick="safeManager.viewTransactionDetails('${transaction.safeTxHash}')">
-                            View Details
-                        </button>
-                    ` : ''}
+                    <button class="btn btn-primary" onclick="safeManager.viewTransactionDetails('${transaction.safeTxHash || 'no-hash'}')">
+                        View Details
+                    </button>
                 </div>
             </div>
         `;
@@ -1050,6 +1091,9 @@ class SafeManager {
             return;
         }
 
+        // Show loading overlay
+        this.showTransactionsLoading(true, 'Confirming transaction...');
+
         try {
             // Confirming transaction...
             console.log('Confirming transaction:', safeTxHash);
@@ -1062,11 +1106,13 @@ class SafeManager {
             if (result) {
                 // Transaction confirmed successfully
                 console.log('Transaction confirmed successfully:', result);
+                showSuccess('Transaction confirmed successfully!');
                 await this.refreshPendingTransactions();
                 return true;
             } else {
                 // Failed to confirm transaction
                 console.log('Failed to confirm transaction - no result');
+                showError('Failed to confirm transaction');
                 return false;
             }
         } catch (error) {
@@ -1093,6 +1139,9 @@ class SafeManager {
             // Show simplified error message at bottom of page
             showError(errorMessage);
             return false;
+        } finally {
+            // Hide loading overlay
+            this.showTransactionsLoading(false);
         }
     }
 
@@ -1117,6 +1166,9 @@ class SafeManager {
     }
 
     async executeTransaction(safeTxHash) {
+        // Show loading overlay
+        this.showTransactionsLoading(true, 'Executing transaction...');
+
         try {
             console.log('Starting transaction execution:', safeTxHash);
             
@@ -1130,7 +1182,7 @@ class SafeManager {
             const result = await this.safeClient.executeTransaction({ safeTxHash, privateKey });
             
             if (result && result.success) {
-                showError('Transaction executed successfully!', 'success');
+                showSuccess('Transaction executed successfully!');
                 await this.refreshPendingTransactions();
             } else {
                 showError('Transaction execution failed');
@@ -1138,6 +1190,9 @@ class SafeManager {
         } catch (error) {
             console.error('Error executing transaction:', error);
             showError('Error executing transaction: ' + error.message);
+        } finally {
+            // Hide loading overlay
+            this.showTransactionsLoading(false);
         }
     }
 
@@ -1160,7 +1215,15 @@ class SafeManager {
     }
 
     viewTransactionDetails(safeTxHash) {
-        const transaction = this.pendingTransactions.find(tx => tx.safeTxHash === safeTxHash);
+        let transaction;
+        
+        if (safeTxHash === 'no-hash') {
+            // If no hash, find the first transaction without safeTxHash
+            transaction = this.pendingTransactions.find(tx => !tx.safeTxHash);
+        } else {
+            // Find transaction by safeTxHash
+            transaction = this.pendingTransactions.find(tx => tx.safeTxHash === safeTxHash);
+        }
         
         if (!transaction) {
             // Transaction not found
@@ -1173,19 +1236,12 @@ class SafeManager {
         this.showTransactionModal(transaction);
     }
 
+
+
     /**
-     * View transaction details in a modal
+     * Show transaction details in a modal
      */
-    viewTransactionDetails(safeTxHash) {
-        const transaction = this.pendingTransactions.find(tx => tx.safeTxHash === safeTxHash);
-        if (!transaction) {
-            this.addLog(`Transaction not found: ${safeTxHash}`, 'error');
-            return;
-        }
-
-        this.addLog(`Viewing details for transaction: ${safeTxHash.slice(0, 10)}...`);
-
-        // Populate modal content
+    showTransactionModal(transaction) {
         const modalContent = document.getElementById('transactionDetailsContent');
         const confirmations = transaction.confirmations || [];
         const confirmationsRequired = transaction.confirmationsRequired || 0;
@@ -1193,7 +1249,7 @@ class SafeManager {
         modalContent.innerHTML = `
             <div class="transaction-detail-item">
                 <span class="transaction-detail-label">Transaction Hash:</span>
-                <span class="transaction-detail-value hash">${safeTxHash}</span>
+                <span class="transaction-detail-value hash">${transaction.safeTxHash || 'Not available (transaction not yet created)'}</span>
             </div>
             <div class="transaction-detail-item">
                 <span class="transaction-detail-label">To Address:</span>
@@ -1288,7 +1344,43 @@ class SafeManager {
         }
     }
 
+    /**
+     * Show or hide the transactions loading overlay
+     * @param {boolean} show - Whether to show the loading overlay
+     * @param {string} message - Loading message to display
+     */
+    showTransactionsLoading(show, message = 'Processing transaction...') {
+        const overlay = document.getElementById('transactionsLoadingOverlay');
+        const section = document.getElementById('transactionsSection');
+        const loadingText = overlay?.querySelector('.transactions-loading-text');
+        
+        if (overlay && section) {
+            if (show) {
+                if (loadingText) {
+                    loadingText.textContent = message;
+                }
+                overlay.classList.remove('hidden');
+                section.classList.add('loading');
+                // Stop auto refresh during loading
+                this.stopAutoRefresh();
+            } else {
+                overlay.classList.add('hidden');
+                section.classList.remove('loading');
+                // Resume auto refresh after loading
+                this.startAutoRefresh();
+            }
+        }
+    }
 
+    /**
+     * Stop auto refresh temporarily
+     */
+    stopAutoRefresh() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
+    }
 
     /**
      * Cleanup when page is unloaded
@@ -1313,18 +1405,28 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Error display functions
-function showError(message) {
+function showError(message, type = 'error') {
     const errorDisplay = document.getElementById('errorDisplay');
     const errorMessage = document.getElementById('errorMessage');
     
     if (errorDisplay && errorMessage) {
         errorMessage.textContent = message;
+        
+        // Remove existing type classes
+        errorDisplay.classList.remove('success');
+        
+        // Add appropriate type class
+        if (type === 'success') {
+            errorDisplay.classList.add('success');
+        }
+        
         errorDisplay.classList.remove('hidden');
         
-        // Auto-hide after 10 seconds
+        // Auto-hide after 10 seconds for errors, 5 seconds for success
+        const hideDelay = type === 'success' ? 5000 : 10000;
         setTimeout(() => {
             hideError();
-        }, 10000);
+        }, hideDelay);
     }
 }
 
@@ -1335,6 +1437,11 @@ function hideError() {
     }
 }
 
+function showSuccess(message) {
+    showError(message, 'success');
+}
+
 // Make functions globally available
 window.showError = showError;
 window.hideError = hideError;
+window.showSuccess = showSuccess;

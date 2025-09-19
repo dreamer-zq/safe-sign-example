@@ -13,75 +13,78 @@
             <p>Manage your Safe multi-signature transactions</p>
         </header>
 
-        <!-- Configuration Section -->
-        <section class="config-section">
-            <h2>Configuration</h2>
-            <div class="config-grid">
-                <div class="config-item">
-                    <label for="txServiceUrl">Transaction Service URL:</label>
-                    <input type="text" id="txServiceUrl" placeholder="http://localhost:8000/api/" value="http://localhost:8000/api/">
+        <!-- Configuration and Status Section -->
+        <div class="config-status-container">
+            <!-- Configuration Section -->
+            <section class="config-section">
+                <h2>Configuration</h2>
+                <div class="config-grid">
+                    <div class="config-row">
+                        <div class="config-item">
+                            <label for="txServiceUrl">Transaction Service URL:</label>
+                            <input type="text" id="txServiceUrl" placeholder="http://localhost:8000/api/" value="http://localhost:8000/api/">
+                        </div>
+                        <div class="config-item">
+                            <label for="rpcUrl">RPC URL:</label>
+                            <input type="text" id="rpcUrl" placeholder="https://sepolia.infura.io/v3/...">
+                        </div>
+                    </div>
+                    <div class="config-row">
+                        <div class="config-item">
+                            <label for="privateKey">Private Key:</label>
+                            <input type="password" id="privateKey" placeholder="0x...">
+                        </div>
+                        <div class="config-item">
+                            <label for="safeAddress">Safe Address:</label>
+                            <input type="text" id="safeAddress" placeholder="0x...">
+                        </div>
+                    </div>
                 </div>
-                <div class="config-item">
-                    <label for="rpcUrl">RPC URL:</label>
-                    <input type="text" id="rpcUrl" placeholder="https://sepolia.infura.io/v3/...">
+                <div class="config-actions">
+                    <button id="saveConfig" class="btn btn-primary">Save Configuration</button>
+                    <button id="loadConfig" class="btn btn-secondary">Load Configuration</button>
                 </div>
-                <div class="config-item">
-                    <label for="privateKey">Private Key:</label>
-                    <input type="password" id="privateKey" placeholder="0x...">
-                </div>
-                <div class="config-item">
-                    <label for="safeAddress">Safe Address:</label>
-                    <input type="text" id="safeAddress" placeholder="0x...">
-                </div>
-                <div class="config-item">
-                    <label for="networkPreset">Network Preset:</label>
-                    <select id="networkPreset" onchange="safeManager.setNetworkPreset(this.value)">
-                        <option value="">Select Network Preset</option>
-                        <option value="mainnet">Ethereum Mainnet</option>
-                        <option value="polygon">Polygon</option>
-                        <option value="arbitrum">Arbitrum One</option>
-                        <option value="optimism">Optimism</option>
-                        <option value="sepolia">Sepolia Testnet</option>
-                        <option value="local">Local Development</option>
-                    </select>
-                </div>
-            </div>
-            <div class="config-actions">
-                <button id="saveConfig" class="btn btn-primary">Save Configuration</button>
-                <button id="loadConfig" class="btn btn-secondary">Load Configuration</button>
-            </div>
-        </section>
+            </section>
 
-        <!-- Status Section -->
-        <section class="status-section">
-            <h2>Safe Status</h2>
-            <div class="status-grid">
-                <div class="status-item">
-                    <span class="status-label">Safe Address:</span>
-                    <span id="currentSafeAddress" class="status-value">Not connected</span>
+            <!-- Status Section -->
+            <section class="status-section">
+                <h2>Safe Status</h2>
+                <div class="status-container">
+                    <div class="status-row">
+                        <div class="status-item">
+                            <span class="status-label">Safe Address:</span>
+                            <span id="currentSafeAddress" class="status-value">Not connected</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Is Deployed:</span>
+                            <span id="isDeployed" class="status-value">Unknown</span>
+                        </div>
+                    </div>
+                    <div class="status-row">
+                        <div class="status-item">
+                            <span class="status-label">Signer Address:</span>
+                            <span id="signerAddress" class="status-value">Not connected</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Signer Balance:</span>
+                            <span id="signerBalance" class="status-value">0 ETH</span>
+                        </div>
+                    </div>
+                    <div class="status-row">
+                        <div class="status-item status-item-full">
+                            <span class="status-label">Connection Status:</span>
+                            <span id="connectionStatus" class="status-value">Disconnected</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="status-item">
-                    <span class="status-label">Is Deployed:</span>
-                    <span id="isDeployed" class="status-value">Unknown</span>
+                <div class="status-actions">
+                    <button id="connectSafe" class="btn btn-primary">Connect to Safe</button>
                 </div>
-                <div class="status-item">
-                    <span class="status-label">Signer Address:</span>
-                    <span id="signerAddress" class="status-value">Not connected</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Signer Balance:</span>
-                    <span id="signerBalance" class="status-value">0 ETH</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Connection Status:</span>
-                    <span id="connectionStatus" class="status-value">Disconnected</span>
-                </div>
-            </div>
-            <button id="connectSafe" class="btn btn-primary">Connect to Safe</button>
-        </section>
+            </section>
+        </div>
 
         <!-- Pending Transactions Section -->
-        <section class="transactions-section">
+        <section class="transactions-section" id="transactionsSection">
             <div class="section-header">
                 <h2>Pending Transactions</h2>
                 <button id="refreshTransactions" class="btn btn-secondary">Refresh</button>
@@ -90,6 +93,11 @@
                 <div class="no-transactions">
                     <p>No pending transactions found</p>
                 </div>
+            </div>
+            <!-- Transactions Loading Overlay -->
+            <div id="transactionsLoadingOverlay" class="transactions-loading-overlay hidden">
+                <div class="transactions-loading-spinner"></div>
+                <div class="transactions-loading-text">Processing transaction...</div>
             </div>
         </section>
 
@@ -113,9 +121,6 @@
                 <div id="transactionDetailsContent">
                     <!-- Transaction details will be populated here -->
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="safeManager.closeTransactionModal()">Close</button>
             </div>
         </div>
     </div>

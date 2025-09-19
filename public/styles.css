@@ -15,13 +15,13 @@ body {
 .container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 10px 20px;
 }
 
 /* Header */
 header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 20px;
     color: white;
 }
 
@@ -40,118 +40,377 @@ header p {
 section {
     background: white;
     border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
+    padding: 32px;
+    margin-bottom: 20px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+section:hover {
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 768px) {
+    section {
+        padding: 24px;
+        margin-bottom: 24px;
+        border-radius: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    section {
+        padding: 20px;
+        margin-bottom: 20px;
+    }
 }
 
 section h2 {
     color: #2d3748;
     margin-bottom: 20px;
     font-size: 1.5rem;
+    font-weight: 600;
     border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 8px;
+    padding-bottom: 10px;
+}
+
+/* Configuration and Status Container */
+.config-status-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 0;
+    align-items: stretch;
+}
+
+/* Configuration Section */
+.config-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+}
+
+.config-section h2 {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.config-grid {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Status Section */
+.status-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+}
+
+.status-section h2 {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-container {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+
+
+@media (max-width: 1200px) {
+    .config-status-container {
+        gap: 24px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .config-status-container {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+}
+
+@media (max-width: 768px) {
+    .config-status-container {
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+    
+    .config-section,
+    .status-section {
+        padding: 24px;
+        min-height: 350px;
+    }
+    
+    .config-section h2,
+    .status-section h2 {
+        font-size: 1.6rem;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+    }
+    
+    .config-grid,
+    .status-container {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .config-section,
+    .status-section {
+        padding: 20px;
+        min-height: 320px;
+        border-radius: 8px;
+    }
+    
+    .config-section h2,
+    .status-section h2 {
+        font-size: 1.4rem;
+        margin-bottom: 16px;
+        padding-bottom: 10px;
+    }
+    
+    .config-grid,
+    .status-container {
+        padding: 12px;
+    }
 }
 
 /* Configuration Section */
 .config-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 16px;
-    margin-bottom: 20px;
+    flex: 1;
+}
+
+.config-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 768px) {
+    .config-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
 }
 
 .config-item {
     display: flex;
     flex-direction: column;
+    gap: 6px;
 }
 
 .config-item label {
     font-weight: 600;
     margin-bottom: 6px;
-    color: #4a5568;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .config-item input {
-    padding: 12px;
-    border: 2px solid #e2e8f0;
+    padding: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 8px;
     font-size: 14px;
-    transition: border-color 0.2s;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    backdrop-filter: blur(5px);
+    transition: all 0.2s;
+}
+
+.config-item input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .config-item input:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
 }
 
 .config-item select {
-    padding: 12px;
-    border: 2px solid #e2e8f0;
+    padding: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 8px;
     font-size: 14px;
-    background: white;
-    color: #2d3748;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
     cursor: pointer;
-    transition: border-color 0.2s;
+    backdrop-filter: blur(5px);
+    transition: all 0.2s;
     appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
     background-repeat: no-repeat;
-    background-position: right 12px center;
+    background-position: right 10px center;
     background-size: 16px;
     padding-right: 40px;
 }
 
 .config-item select:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
 }
 
 .config-item select:hover {
-    border-color: #cbd5e0;
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.18);
 }
 
 .config-actions {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
+    justify-content: center;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
 }
 
 /* Status Section */
-.status-grid {
+.status-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+}
+
+.status-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 16px;
-    margin-bottom: 20px;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.status-row:last-child {
+    grid-template-columns: 1fr;
+}
+
+.status-item-full {
+    grid-column: 1 / -1;
+}
+
+.status-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .status-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
 }
 
 .status-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px;
-    background: #f7fafc;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 8px;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(5px);
 }
 
 .status-label {
     font-weight: 600;
-    color: #4a5568;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .status-value {
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: 0.9rem;
-    color: #2d3748;
+    color: rgba(255, 255, 255, 0.9);
     word-break: break-all;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Address truncation styles */
+.address-truncated {
+    position: relative;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.address-truncated .full-address {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2d3748;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-bottom: 8px;
+}
+
+.address-truncated .full-address::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #2d3748;
+}
+
+.address-truncated:hover .full-address {
+    display: block;
 }
 
 /* Buttons */
 .btn {
-    padding: 12px 24px;
+    padding: 10px 20px;
     border: none;
     border-radius: 8px;
     font-size: 14px;
@@ -210,33 +469,82 @@ section h2 {
 }
 
 /* Transactions Section */
+.transactions-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 32px;
+    margin-top: 2px;
+    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-width: 768px) {
+    .transactions-section {
+        padding: 24px;
+        margin-top: 20px;
+        border-radius: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .transactions-section {
+        padding: 20px;
+        margin-top: 16px;
+    }
+}
+
 .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .section-header h2 {
     margin-bottom: 0;
     border-bottom: none;
     padding-bottom: 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .transactions-container {
-    min-height: 200px;
-}
-
-.transaction-card {
-    border: 2px solid #e2e8f0;
+    flex: 1;
+    min-height: 280px;
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     padding: 20px;
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Transactions section specific button styles - removed as View Details now uses btn-primary */
+
+.transaction-card {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 24px;
     margin-bottom: 16px;
-    transition: border-color 0.2s;
+    transition: all 0.3s ease;
+    color: white;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .transaction-card:hover {
-    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .transaction-header {
@@ -249,8 +557,9 @@ section h2 {
 .transaction-hash {
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: 0.9rem;
-    color: #667eea;
+    color: rgba(255, 255, 255, 0.9);
     font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .transaction-status {
@@ -290,17 +599,19 @@ section h2 {
 
 .detail-label {
     font-size: 0.8rem;
-    color: #718096;
+    color: rgba(255, 255, 255, 0.7);
     margin-bottom: 4px;
     text-transform: uppercase;
     font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .detail-value {
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: 0.9rem;
-    color: #2d3748;
+    color: rgba(255, 255, 255, 0.9);
     word-break: break-all;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .transaction-actions {
@@ -312,17 +623,18 @@ section h2 {
 .no-transactions {
     text-align: center;
     padding: 60px 40px;
-    color: #718096;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .no-transactions-icon {
     font-size: 3rem;
     margin-bottom: 16px;
-    opacity: 0.7;
+    opacity: 0.8;
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .no-transactions h3 {
-    color: #4a5568;
+    color: white;
     margin-bottom: 12px;
     font-size: 1.25rem;
     font-weight: 600;
@@ -331,10 +643,11 @@ section h2 {
 .no-transactions p {
     margin-bottom: 8px;
     line-height: 1.5;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .no-transactions .text-muted {
-    color: #a0aec0;
+    color: rgba(255, 255, 255, 0.6);
     font-size: 0.9rem;
 }
 
@@ -396,6 +709,54 @@ section h2 {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 16px;
+}
+
+/* Pending Transactions Loading Overlay */
+.transactions-section {
+    position: relative;
+}
+
+.transactions-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    border-radius: 12px;
+    backdrop-filter: blur(5px);
+}
+
+.transactions-loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+.transactions-loading-text {
+    color: #4a5568;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.transactions-section.loading .transactions-container {
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.transactions-section.loading .section-header button {
+    pointer-events: none;
+    opacity: 0.5;
 }
 
 @keyframes spin {
@@ -482,13 +843,76 @@ section h2 {
 }
 
 .modal-content {
-    background: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
     border-radius: 12px;
     max-width: 800px;
     width: 95%;
-    max-height: 80vh;
+    max-height: 95vh;
     overflow-y: auto;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 768px) {
+    .modal-content {
+        width: 98%;
+        max-height: 92vh;
+        border-radius: 8px;
+    }
+    
+    .modal-header {
+        padding: 16px 20px;
+    }
+    
+    .modal-header h3 {
+        font-size: 1.1rem;
+    }
+    
+    .modal-body {
+        padding: 20px;
+        margin: 0 20px;
+    }
+    
+    .modal-footer {
+        padding: 12px 20px;
+    }
+    
+    .transaction-detail-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 12px;
+    }
+    
+    .transaction-detail-label {
+        min-width: auto;
+    }
+    
+    .transaction-detail-value {
+        text-align: left;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .modal-content {
+        width: 100%;
+        max-height: 95vh;
+        border-radius: 0;
+    }
+    
+    .modal-header {
+        padding: 12px 16px;
+    }
+    
+    .modal-body {
+        padding: 16px;
+        margin: 0 16px;
+    }
+    
+    .modal-footer {
+        padding: 10px 16px;
+    }
 }
 
 .modal-header {
@@ -496,13 +920,15 @@ section h2 {
     justify-content: space-between;
     align-items: center;
     padding: 20px 24px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .modal-header h3 {
     margin: 0;
-    color: #2d3748;
+    color: white;
     font-size: 1.25rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .modal-close {
@@ -510,7 +936,7 @@ section h2 {
     border: none;
     font-size: 24px;
     cursor: pointer;
-    color: #718096;
+    color: rgba(255, 255, 255, 0.8);
     padding: 0;
     width: 30px;
     height: 30px;
@@ -518,21 +944,26 @@ section h2 {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
 }
 
 .modal-close:hover {
-    background-color: #f7fafc;
-    color: #2d3748;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    transform: scale(1.1);
 }
 
 .modal-body {
-    padding: 24px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    margin: 15px 20px 20px 20px;
+    border-radius: 8px;
+    backdrop-filter: blur(5px);
 }
 
 .modal-footer {
     padding: 16px 24px;
-    border-top: 1px solid #e2e8f0;
+    border-top: 2px solid rgba(255, 255, 255, 0.2);
     display: flex;
     justify-content: flex-end;
     gap: 12px;
@@ -542,35 +973,43 @@ section h2 {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    padding: 12px 0;
-    border-bottom: 1px solid #f7fafc;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    backdrop-filter: blur(5px);
 }
 
 .transaction-detail-item:last-child {
     border-bottom: none;
+    margin-bottom: 0;
 }
 
 .transaction-detail-label {
     font-weight: 600;
-    color: #4a5568;
+    color: white;
     min-width: 140px;
     flex-shrink: 0;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .transaction-detail-value {
-    color: #2d3748;
+    color: rgba(255, 255, 255, 0.9);
     word-break: break-all;
     text-align: right;
     flex: 1;
     margin-left: 20px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .transaction-detail-value.hash {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 0.9rem;
-    background: #f7fafc;
+    background: rgba(255, 255, 255, 0.15);
     padding: 4px 8px;
     border-radius: 4px;
+    backdrop-filter: blur(5px);
 }
 
 .confirmation-item {
@@ -578,9 +1017,11 @@ section h2 {
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
-    background: #f7fafc;
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 6px;
     margin-bottom: 8px;
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .confirmation-item:last-child {
@@ -590,7 +1031,8 @@ section h2 {
 .confirmation-address {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 0.9rem;
-    color: #4a5568;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .confirmation-status {
@@ -753,4 +1195,22 @@ section h2 {
 
 .error-close:hover {
     background-color: rgba(116, 42, 42, 0.1);
+}
+
+/* Success Display */
+.error-display.success .error-content {
+    background: #c6f6d5;
+    border: 1px solid #9ae6b4;
+}
+
+.error-display.success .error-message {
+    color: #22543d;
+}
+
+.error-display.success .error-close {
+    color: #22543d;
+}
+
+.error-display.success .error-close:hover {
+    background-color: rgba(34, 84, 61, 0.1);
 }
