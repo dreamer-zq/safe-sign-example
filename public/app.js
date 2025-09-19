@@ -599,6 +599,8 @@ class SafeManager {
     initializeApp() {
         this.bindEventListeners();
         this.loadConfiguration();
+        // Try to load pending transactions on startup if configuration exists
+        this.tryInitialPendingTransactionsLoad();
         // Application initialized
     }
 
@@ -674,6 +676,47 @@ class SafeManager {
             }
         } catch (error) {
             // Failed to load configuration
+        }
+    }
+
+    /**
+     * Try to load pending transactions on startup if configuration exists
+     */
+    async tryInitialPendingTransactionsLoad() {
+        try {
+            const savedConfig = localStorage.getItem('safeManagerConfig');
+            if (savedConfig) {
+                const config = JSON.parse(savedConfig);
+                // Check if we have the minimum required configuration
+                if (config.txServiceUrl && config.safeAddress) {
+                    // Create a temporary safe client to fetch pending transactions
+                    const tempSafeClient = new SafeClient({
+                        txServiceUrl: config.txServiceUrl,
+                        rpcUrl: config.rpcUrl || '',
+                        privateKey: '', // Not needed for fetching pending transactions
+                        safeAddress: config.safeAddress
+                    });
+                    
+                    // Try to fetch pending transactions
+                    const transactions = await tempSafeClient.getPendingTransactions();
+                    if (transactions && transactions.results) {
+                        this.pendingTransactions = transactions.results.filter(tx => {
+                            return tx && tx.safeTxHash;
+                        });
+                    } else if (Array.isArray(transactions)) {
+                        this.pendingTransactions = transactions.filter(tx => {
+                            return tx && tx.safeTxHash;
+                        });
+                    }
+                    
+                    // Render the pending transactions
+                    this.renderPendingTransactions();
+                    console.log(`Initial load: Found ${this.pendingTransactions.length} pending transactions`);
+                }
+            }
+        } catch (error) {
+            console.log('Could not load initial pending transactions:', error.message);
+            // Silently fail - this is just an initial attempt
         }
     }
 
