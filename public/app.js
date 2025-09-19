@@ -73,7 +73,6 @@ class SafeClient {
     async getSafeInfo() {
         try {
             const url = `${this.baseUrl}api/v1/safes/${this.config.safeAddress}/`;
-            console.log('Fetching Safe info from:', url);
 
             const response = await fetch(url, {
                 method: 'GET',
@@ -107,7 +106,6 @@ class SafeClient {
     async getPendingTransactions() {
         try {
             const url = `${this.baseUrl}api/v2/safes/${this.config.safeAddress}/multisig-transactions?executed=false`;
-            console.log('Fetching pending transactions from:', url);
 
             const response = await fetch(url, {
                 method: 'GET',
@@ -141,11 +139,9 @@ class SafeClient {
     async confirm({ safeTxHash, privateKey }) {
         try {
             const url = `${this.baseUrl}api/v1/multisig-transactions/${safeTxHash}/confirmations/`;
-            console.log('Confirming transaction at:', url);
 
             // Generate real signature using the private key
             let signature;
-            let ownerAddress;
             let wallet;
             if (privateKey) {
                 try {
@@ -153,40 +149,10 @@ class SafeClient {
                     const ethers = await this.waitForEthers();
                     const formattedPrivateKey = privateKey.startsWith('0x') ? privateKey : '0x' + privateKey;
                     
-                    console.log('=== WALLET CREATION DEBUG ===');
-                    console.log('Raw private key from input:', privateKey);
-                    console.log('Formatted private key:', formattedPrivateKey);
-                    console.log('Private key length:', formattedPrivateKey.length);
-                    console.log('Expected length: 66 (including 0x)');
-                    
-                    wallet = new ethers.Wallet(formattedPrivateKey);
-                    ownerAddress = wallet.address;
-                    
-                    console.log('Created wallet with address:', ownerAddress);
-                    console.log('Wallet private key (first 10 chars):', wallet.privateKey.substring(0, 10) + '...');
-                    
-                    // Check if this address matches any of the expected Safe owners
-                    const expectedOwners = [
-                        '0x667Db444fd6db27eAee72C8fa49dC7D5872662a5',
-                        '0x2932b7A2355D6fecc4b5c0B6BD44cC31df247a2e', 
-                        '0x2191eF87E392377ec08E7c08Eb105Ef5448eCED5'
-                    ];
-                    
-                    const isValidOwner = expectedOwners.some(owner => 
-                        owner.toLowerCase() === ownerAddress.toLowerCase()
-                    );
-                    
-                    console.log('Is valid Safe owner:', isValidOwner);
-                    console.log('Expected owners:', expectedOwners);
-                    console.log('==============================');
-                    
+                    wallet = new ethers.Wallet(formattedPrivateKey); 
                     // Generate signature using the same wallet instance
                     signature = await this.generateSignatureWithWallet(safeTxHash, wallet);
-                    
-                    console.log('Using real signature for transaction confirmation');
-                    console.log('Owner address:', ownerAddress);
                 } catch (signError) {
-                    console.error('Failed to generate real signature:', signError.message);
                     throw new Error(`Failed to generate signature: ${signError.message}`);
                 }
             } else {
@@ -195,22 +161,7 @@ class SafeClient {
 
             const requestBody = {
                 signature: signature,
-                owner: ownerAddress
             };
-
-            console.log('=== CONFIRMATION REQUEST DEBUG ===');
-            console.log('URL:', url);
-            console.log('Method: POST');
-            console.log('Headers:', {
-                'Content-Type': 'application/json'
-            });
-            console.log('Request Body:', requestBody);
-            console.log('Request Body JSON:', JSON.stringify(requestBody, null, 2));
-            console.log('Safe Transaction Hash:', safeTxHash);
-            console.log('Owner Address:', ownerAddress);
-            console.log('Signature:', signature);
-            console.log('Signature Length:', signature.length);
-            console.log('=====================================');
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -220,21 +171,14 @@ class SafeClient {
                 body: JSON.stringify(requestBody)
             });
 
-            console.log('=== RESPONSE DEBUG ===');
-            console.log('Response Status:', response.status);
-            console.log('Response Status Text:', response.statusText);
-            console.log('Response Headers:', Object.fromEntries(response.headers.entries()));
-            console.log('======================');
-
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('=== TRANSACTION CONFIRMATION FAILED ===');
-                console.error('Status:', response.status);
-                console.error('Status Text:', response.statusText);
-                console.error('URL:', url);
-                console.error('Request Body:', requestBody);
-                console.error('Response Text:', errorText);
-                console.error('Response Headers:', Object.fromEntries(response.headers.entries()));
+                console.error('Transaction confirmation failed:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: url,
+                    response: errorText
+                });
                 
                 // Try to parse error response as JSON
                 try {
@@ -243,13 +187,11 @@ class SafeClient {
                 } catch (parseError) {
                     console.error('Could not parse error response as JSON');
                 }
-                console.error('=======================================');
                 
                 throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}. URL: ${url}`);
             }
 
             const data = await response.json();
-            console.log('Transaction confirmation successful:', data);
             return data;
         } catch (error) {
             console.error('Error confirming transaction:', error);
@@ -308,50 +250,30 @@ class SafeClient {
             // Ensure transaction hash has 0x prefix
             const formattedTxHash = safeTxHash.startsWith('0x') ? safeTxHash : '0x' + safeTxHash;
 
-            console.log('Signing transaction hash:', formattedTxHash);
-            console.log('Using wallet address:', wallet.address);
-
             // For Safe signatures, we need to sign the hash directly without additional hashing
             // Use signDigest to sign the raw hash instead of signMessage which adds extra hashing
             let signature;
             
-            console.log('=== SIGNATURE GENERATION DEBUG ===');
-            console.log('Transaction hash to sign:', formattedTxHash);
-            console.log('Wallet address before signing:', wallet.address);
-            
             // Use signDigest for direct hash signing (available in ethers v6)
             if (wallet.signDigest) {
-                console.log('Using signDigest method (ethers v6)');
                 signature = await wallet.signDigest(formattedTxHash);
             } else if (wallet._signingKey && wallet._signingKey.signDigest) {
                 // For ethers v5, access the signing key directly
-                console.log('Using _signingKey.signDigest method (ethers v5)');
                 signature = wallet._signingKey.signDigest(formattedTxHash);
             } else if (ethers.utils && ethers.utils.SigningKey) {
                 // For ethers v5, use utils.SigningKey
-                console.log('Using ethers.utils.SigningKey (ethers v5)');
                 const signingKey = new ethers.utils.SigningKey(wallet.privateKey);
                 signature = signingKey.signDigest(formattedTxHash);
             } else {
                 // Final fallback: use signMessage but warn about potential issues
-                console.log('Using signMessage fallback (may cause address mismatch)');
                 console.warn('Could not find signDigest method, using signMessage which may cause signature verification issues');
                 signature = await wallet.signMessage(formattedTxHash);
             }
             
-            console.log('Raw signature result:', signature);
-            
             // If signature is an object (ethers v5 format), convert to string
             if (typeof signature === 'object' && signature.r && signature.s && signature.v) {
-                console.log('Converting signature object to string format');
                 signature = ethers.utils.joinSignature(signature);
             }
-            
-            console.log('Final signature string:', signature);
-            console.log('===================================');
-            
-            console.log('Generated signature:', signature);
-            console.log('Signature length:', signature.length);
             
             // Verify signature format (should be 132 characters including 0x prefix)
             if (!signature.startsWith('0x') || signature.length !== 132) {
@@ -374,8 +296,6 @@ class SafeClient {
      */
     async executeTransaction({ safeTxHash, privateKey }) {
         try {
-            console.log('Starting transaction execution:', safeTxHash);
-
         // Get transaction details
             const url = `${this.baseUrl}api/v1/multisig-transactions/${safeTxHash}/`;
             const txResponse = await fetch(url, {
@@ -390,7 +310,6 @@ class SafeClient {
             }
 
             const txData = await txResponse.json();
-            console.log('Transaction details:', txData);
 
             // Check if confirmations meet threshold
             const confirmationsRequired = txData.confirmationsRequired || 1;
@@ -432,7 +351,6 @@ class SafeClient {
             
             // Get current nonce
             const nonce = await safeContract.nonce();
-            console.log('Current Safe nonce:', nonce.toString());
             
             // Calculate transaction hash
             const txHash = await safeContract.getTransactionHash(
@@ -447,7 +365,6 @@ class SafeClient {
                 refundReceiver,
                 nonce
             );
-            console.log('Calculated transaction hash:', txHash);
             
             // Build correct signature data
             const confirmations = txData.confirmations || [];
@@ -472,22 +389,7 @@ class SafeClient {
                 }
             }
             
-            console.log('Execution parameters:', {
-                to,
-                value,
-                data,
-                operation,
-                safeTxGas,
-                baseGas,
-                gasPrice,
-                gasToken,
-                refundReceiver,
-                nonce: nonce.toString(),
-                signatures,
-                validConfirmationsCount: validConfirmations.length
-            });
-            
-            // Try to estimate gas first
+            // Estimate gas
             let gasLimit;
             try {
                 gasLimit = await safeContract.estimateGas.execTransaction(
@@ -502,13 +404,9 @@ class SafeClient {
                     refundReceiver,
                     signatures
                 );
-                console.log('Estimated gas limit:', gasLimit.toString());
-                // Add 20% buffer
-                gasLimit = gasLimit.mul(120).div(100);
             } catch (gasError) {
                 console.warn('Gas estimation failed, using default value:', gasError.message);
-                // Use larger default gas limit
-                gasLimit = ethers.BigNumber.from('500000');
+                gasLimit = ethers.BigNumber.from('500000'); // Default gas limit
             }
             
             // Execute transaction
@@ -528,18 +426,14 @@ class SafeClient {
                 }
             );
             
-            console.log('Transaction submitted:', tx.hash);
-            
-            // Wait for transaction confirmation
+            // Wait for confirmation
             const receipt = await tx.wait();
-            console.log('Transaction confirmed:', receipt);
             
             return {
                 success: true,
                 transactionHash: tx.hash,
-                blockNumber: receipt.blockNumber
+                receipt: receipt
             };
-            
         } catch (error) {
             console.error('Transaction execution failed:', error);
             throw error;
@@ -547,15 +441,12 @@ class SafeClient {
     }
 
     /**
-     * Test connection to the Safe transaction service
+     * Test connection to Safe transaction service
      */
     async testConnection() {
         try {
-            // Try to fetch the service info first
-            const serviceUrl = `${this.baseUrl}api/v1/about/`;
-            console.log('Testing connection to:', serviceUrl);
-
-            const response = await fetch(serviceUrl, {
+            const serviceUrl = this.baseUrl.replace(/\/+$/, ''); // Remove trailing slashes
+            const response = await fetch(`${serviceUrl}/api/v1/about/`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -563,15 +454,20 @@ class SafeClient {
             });
 
             if (!response.ok) {
-                throw new Error(`Service not available: ${response.status} - ${response.statusText}`);
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const serviceInfo = await response.json();
-            console.log('Service info:', serviceInfo);
-            return serviceInfo;
+            return {
+                success: true,
+                serviceInfo: serviceInfo
+            };
         } catch (error) {
             console.error('Connection test failed:', error);
-            throw error;
+            return {
+                success: false,
+                error: error.message
+            };
         }
     }
 }
@@ -589,6 +485,9 @@ class SafeManager {
         this.isConnected = false;
         this.pendingTransactions = [];
         this.refreshInterval = null;
+        this.countdownInterval = null;
+        this.countdownSeconds = 5;
+        this.isRefreshPaused = false;
 
         this.initializeApp();
     }
@@ -596,7 +495,7 @@ class SafeManager {
     /**
      * Initialize the application
      */
-    initializeApp() {
+    async initializeApp() {
         this.bindEventListeners();
         this.loadConfiguration();
         // Try to load pending transactions on startup if configuration exists
@@ -604,38 +503,33 @@ class SafeManager {
         // Application initialized
     }
 
-    setNetworkPreset(network) {
-        const presets = {
-            mainnet: {
-                txServiceUrl: 'https://safe-transaction-mainnet.safe.global/',
-                rpcUrl: 'https://mainnet.infura.io/v3/YOUR_PROJECT_ID'
-            },
-            polygon: {
-                txServiceUrl: 'https://safe-transaction-polygon.safe.global/',
-                rpcUrl: 'https://polygon-mainnet.infura.io/v3/YOUR_PROJECT_ID'
-            },
-            arbitrum: {
-                txServiceUrl: 'https://safe-transaction-arbitrum.safe.global/',
-                rpcUrl: 'https://arbitrum-mainnet.infura.io/v3/YOUR_PROJECT_ID'
-            },
-            optimism: {
-                txServiceUrl: 'https://safe-transaction-optimism.safe.global/',
-                rpcUrl: 'https://optimism-mainnet.infura.io/v3/YOUR_PROJECT_ID'
-            },
-            sepolia: {
-                txServiceUrl: 'https://safe-transaction-sepolia.safe.global/',
-                rpcUrl: 'https://sepolia.infura.io/v3/YOUR_PROJECT_ID'
-            },
-            local: {
-                txServiceUrl: 'http://localhost:8000/api/',
-                rpcUrl: 'http://localhost:8545'
+    // Try to load pending transactions on initial page load
+    async tryInitialPendingTransactionsLoad() {
+        try {
+            // Check if we have the minimum required configuration
+            const safeAddress = localStorage.getItem('safeAddress');
+            const txServiceUrl = localStorage.getItem('txServiceUrl');
+            
+            if (!safeAddress || !txServiceUrl) {
+                return; // No configuration available, skip initial load
             }
-        };
-
-        if (presets[network]) {
-            document.getElementById('txServiceUrl').value = presets[network].txServiceUrl;
-            document.getElementById('rpcUrl').value = presets[network].rpcUrl;
-            // Set network preset
+            
+            // Create a temporary SafeClient to fetch transactions
+            const tempConfig = {
+                safeAddress: safeAddress,
+                txServiceUrl: txServiceUrl
+            };
+            
+            const tempClient = new SafeClient(tempConfig);
+            const result = await tempClient.getPendingTransactions();
+            
+            // Filter for pending transactions only
+            this.pendingTransactions = (result.results || []).filter(tx => !tx.isExecuted);
+            
+            // Render the transactions
+            this.renderPendingTransactions();
+        } catch (error) {
+            // Silently fail - this is just an initial load attempt
         }
     }
 
@@ -643,7 +537,6 @@ class SafeManager {
         document.getElementById('connectSafe').addEventListener('click', () => this.connectToSafe());
         document.getElementById('saveConfig').addEventListener('click', () => this.saveConfiguration());
         document.getElementById('loadConfig').addEventListener('click', () => this.loadConfiguration());
-        document.getElementById('refreshTransactions').addEventListener('click', () => this.refreshPendingTransactions());
     }
 
     saveConfiguration() {
@@ -711,12 +604,10 @@ class SafeManager {
                     
                     // Render the pending transactions
                     this.renderPendingTransactions();
-                    console.log(`Initial load: Found ${this.pendingTransactions.length} pending transactions`);
                 }
             }
         } catch (error) {
-            console.log('Could not load initial pending transactions:', error.message);
-            // Silently fail - this is just an initial attempt
+            console.error('Could not load initial pending transactions:', error.message);
         }
     }
 
@@ -894,50 +785,81 @@ class SafeManager {
     }
 
     startAutoRefresh() {
-        // Clear any existing interval
+        // Clear any existing intervals
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
         }
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+        }
 
-        // Set up new interval for auto-refresh every 30 seconds
+        // Start countdown display
+        this.startCountdown();
+
+        // Set up new interval for auto-refresh every 5 seconds
         this.refreshInterval = setInterval(() => {
             this.refreshPendingTransactions();
             this.updateSignerBalance();
-        }, 30000);
+            this.resetCountdown();
+        }, 5000);
     }
 
+    /**
+     * Start countdown timer
+     */
+    startCountdown() {
+        this.countdownSeconds = 5;
+        this.updateCountdownDisplay();
+        
+        this.countdownInterval = setInterval(() => {
+            this.countdownSeconds--;
+            this.updateCountdownDisplay();
+            
+            if (this.countdownSeconds <= 0) {
+                this.countdownSeconds = 5;
+            }
+        }, 1000);
+    }
+
+    /**
+     * Reset countdown to 5 seconds
+     */
+    resetCountdown() {
+        this.countdownSeconds = 5;
+        this.updateCountdownDisplay();
+    }
+
+    /**
+     * Update countdown display in UI
+     */
+    updateCountdownDisplay(customText = null) {
+        const countdownElement = document.getElementById('autoRefreshCountdown');
+        if (countdownElement) {
+            const timerElement = countdownElement.querySelector('.countdown-timer');
+            if (timerElement) {
+                timerElement.textContent = customText || `${this.countdownSeconds}s`;
+            }
+        }
+    }
+
+    /**
+     * Refresh pending transactions
+     */
     async refreshPendingTransactions() {
         try {
             if (!this.safeClient) {
-                // Not connected to Safe
-                return;
+                throw new Error('Safe client not initialized');
             }
 
-            // Fetching pending transactions from Safe service...
             const transactions = await this.safeClient.getPendingTransactions();
-            console.log('Debug: Raw transactions from API:', transactions);
             
-            if (Array.isArray(transactions)) {
-                this.pendingTransactions = transactions.filter(tx => {
-                    return tx && !tx.isExecuted;
-                });
-            } else if (transactions && transactions.results) {
-                this.pendingTransactions = transactions.results.filter(tx => {
-                    return tx && !tx.isExecuted;
-                });
-            } else {
-                // Unexpected response format from Safe service
-                this.pendingTransactions = [];
-            }
+            // Filter for pending transactions only
+            this.pendingTransactions = (transactions.results || []).filter(tx => !tx.isExecuted);
             
-            console.log('Debug: Filtered pending transactions:', this.pendingTransactions);
-
             this.renderPendingTransactions();
-            console.log(`Found ${this.pendingTransactions.length} pending transactions`);
         } catch (error) {
             console.error('Failed to refresh transactions:', error);
-            this.pendingTransactions = [];
-            this.renderPendingTransactions();
+            this.showError('Failed to refresh transactions: ' + error.message);
         }
     }
 
@@ -959,9 +881,6 @@ class SafeManager {
             console.warn('pendingTransactions is not an array:', this.pendingTransactions);
             this.pendingTransactions = [];
         }
-
-        // Debug: log pending transactions
-        console.log('Debug: pendingTransactions:', this.pendingTransactions);
 
         if (this.pendingTransactions.length === 0) {
             container.innerHTML = `
@@ -992,16 +911,11 @@ class SafeManager {
                 return;
             }
 
-            // Limit to 3 transactions for display, but keep all for scrolling
             const transactionsToRender = validTransactions;
-            console.log('Debug: About to render', transactionsToRender.length, 'transactions');
             
             const renderedCards = transactionsToRender.map((tx, index) => {
                 try {
-                    console.log(`Debug: Rendering transaction ${index}:`, tx);
-                    const cardHtml = this.renderTransactionCard(tx);
-                    console.log(`Debug: Generated HTML for transaction ${index}:`, cardHtml.substring(0, 200) + '...');
-                    return cardHtml;
+                    return this.renderTransactionCard(tx);
                 } catch (error) {
                     console.error('Error rendering transaction card:', error, tx);
                     return `
@@ -1016,7 +930,6 @@ class SafeManager {
             });
             
             container.innerHTML = renderedCards.join('');
-            console.log('Debug: Final container HTML:', container.innerHTML.substring(0, 500) + '...');
         } catch (error) {
             console.error('Error rendering transactions:', error);
             container.innerHTML = `
@@ -1123,68 +1036,41 @@ class SafeManager {
      * Confirm a transaction
      */
     async confirmTransaction(safeTxHash) {
-        if (!this.safeClient) {
-            // Not connected to Safe
+        if (!safeTxHash) {
+            showError('Transaction hash is required');
             return;
         }
 
         const privateKey = document.getElementById('privateKey').value;
         if (!privateKey) {
-            // Private key not configured. Please enter your private key in the configuration.
+            showError('Private key is required');
             return;
         }
 
-        // Show loading overlay
+        // Pause auto refresh during transaction confirmation
+        this.pauseAutoRefresh();
         this.showTransactionsLoading(true, 'Confirming transaction...');
 
         try {
-            // Confirming transaction...
-            console.log('Confirming transaction:', safeTxHash);
-
-            const result = await this.safeClient.confirm({ 
-                safeTxHash: safeTxHash, 
-                privateKey: privateKey 
-            });
+            const result = await this.safeClient.confirm({ safeTxHash, privateKey });
             
+            // Safe API confirmation endpoint returns the confirmation object if successful
             if (result) {
-                // Transaction confirmed successfully
-                console.log('Transaction confirmed successfully:', result);
-                showSuccess('Transaction confirmed successfully!');
-                await this.refreshPendingTransactions();
-                return true;
+                showSuccess('Transaction confirmed successfully');
+                // Wait a bit for the Safe API to update the transaction status
+                setTimeout(async () => {
+                    await this.refreshPendingTransactions();
+                }, 1000);
             } else {
-                // Failed to confirm transaction
-                console.log('Failed to confirm transaction - no result');
-                showError('Failed to confirm transaction');
-                return false;
+                showError('Failed to confirm transaction - no result');
             }
         } catch (error) {
-            console.error('Failed to confirm transaction:', error);
-            
-            // Extract meaningful error message
-            let errorMessage = 'Failed to confirm transaction';
-            if (error.message) {
-                if (error.message.includes('HTTP error! status: 400')) {
-                    errorMessage = 'Invalid request - check transaction hash and private key';
-                } else if (error.message.includes('HTTP error! status: 404')) {
-                    errorMessage = 'Transaction not found';
-                } else if (error.message.includes('HTTP error! status: 500')) {
-                    errorMessage = 'Server error - please try again later';
-                } else if (error.message.includes('Failed to generate signature')) {
-                    errorMessage = 'Invalid private key or signature generation failed';
-                } else if (error.message.includes('No private key provided')) {
-                    errorMessage = 'Private key is required for confirmation';
-                } else {
-                    errorMessage = error.message;
-                }
-            }
-            
-            // Show simplified error message at bottom of page
-            showError(errorMessage);
-            return false;
+            console.error('Error confirming transaction:', error);
+            showError(`Failed to confirm transaction: ${error.message}`);
         } finally {
-            // Hide loading overlay
             this.showTransactionsLoading(false);
+            // Resume auto refresh after transaction is complete
+            this.resumeAutoRefresh();
         }
     }
 
@@ -1209,33 +1095,40 @@ class SafeManager {
     }
 
     async executeTransaction(safeTxHash) {
-        // Show loading overlay
+        if (!safeTxHash) {
+            showError('Transaction hash is required');
+            return;
+        }
+
+        const privateKey = document.getElementById('privateKey').value;
+        if (!privateKey) {
+            showError('Private key is required');
+            return;
+        }
+
+        // Pause auto refresh during transaction execution
+        this.pauseAutoRefresh();
         this.showTransactionsLoading(true, 'Executing transaction...');
 
         try {
-            console.log('Starting transaction execution:', safeTxHash);
-            
-            // Get private key from input
-            const privateKey = document.getElementById('privateKey').value;
-            if (!privateKey) {
-                showError('Private key is required to execute transaction');
-                return;
-            }
-            
             const result = await this.safeClient.executeTransaction({ safeTxHash, privateKey });
             
             if (result && result.success) {
-                showSuccess('Transaction executed successfully!');
-                await this.refreshPendingTransactions();
+                showSuccess('Transaction executed successfully');
+                // Wait a bit for the Safe API to update the transaction status
+                setTimeout(async () => {
+                    await this.refreshPendingTransactions();
+                }, 2000);
             } else {
-                showError('Transaction execution failed');
+                showError('Failed to execute transaction');
             }
         } catch (error) {
             console.error('Error executing transaction:', error);
-            showError('Error executing transaction: ' + error.message);
+            showError(`Failed to execute transaction: ${error.message}`);
         } finally {
-            // Hide loading overlay
             this.showTransactionsLoading(false);
+            // Resume auto refresh after transaction is complete
+            this.resumeAutoRefresh();
         }
     }
 
@@ -1273,7 +1166,8 @@ class SafeManager {
             return;
         }
 
-        // Viewing details for transaction...
+        // Pause auto refresh when viewing transaction details
+        this.pauseAutoRefresh();
         
         // Create and show modal with transaction details
         this.showTransactionModal(transaction);
@@ -1371,6 +1265,9 @@ class SafeManager {
         const modal = document.getElementById('transactionModal');
         modal.classList.add('hidden');
         modal.onclick = null;
+        
+        // Resume auto refresh when modal is closed
+        this.resumeAutoRefresh();
     }
 
 
@@ -1418,10 +1315,41 @@ class SafeManager {
     /**
      * Stop auto refresh temporarily
      */
+    /**
+     * Pause auto refresh temporarily
+     */
+    pauseAutoRefresh() {
+        this.isRefreshPaused = true;
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
+        // Update countdown display to show paused state
+        this.updateCountdownDisplay('Paused');
+    }
+
+    /**
+     * Resume auto refresh
+     */
+    resumeAutoRefresh() {
+        if (this.isRefreshPaused) {
+            this.isRefreshPaused = false;
+            this.startAutoRefresh();
+        }
+    }
+
     stopAutoRefresh() {
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
             this.refreshInterval = null;
+        }
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
         }
     }
 

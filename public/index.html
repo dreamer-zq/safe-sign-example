@@ -24,7 +24,7 @@
                             <input type="text" id="txServiceUrl" placeholder="http://localhost:8000/api/" value="http://localhost:8000/api/">
                         </div>
                         <div class="config-item">
-                            <label for="rpcUrl">RPC URL:</label>
+                            <label for="rpcUrl">Chain RPC URL:</label>
                             <input type="text" id="rpcUrl" placeholder="https://sepolia.infura.io/v3/...">
                         </div>
                     </div>
@@ -86,7 +86,10 @@
         <section class="transactions-section" id="transactionsSection">
             <div class="section-header">
                 <h2>Pending Transactions</h2>
-                <button id="refreshTransactions" class="btn btn-secondary">Refresh</button>
+                <div id="autoRefreshCountdown" class="auto-refresh-countdown">
+                    <span class="countdown-text">Next refresh in: </span>
+                    <span id="countdownTimer" class="countdown-timer">5s</span>
+                </div>
             </div>
             <div id="transactionsContainer" class="transactions-container scrollable-container">
                 <div class="no-transactions">
