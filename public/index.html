@@ -86,9 +86,12 @@
         <section class="transactions-section" id="transactionsSection">
             <div class="section-header">
                 <h2>Pending Transactions</h2>
-                <div id="autoRefreshCountdown" class="auto-refresh-countdown">
-                    <span class="countdown-text">Next refresh in: </span>
-                    <span id="countdownTimer" class="countdown-timer">5s</span>
+                <div class="header-controls">
+                    <div id="autoRefreshCountdown" class="auto-refresh-countdown">
+                        <span class="countdown-text">Next refresh in: </span>
+                        <span id="countdownTimer" class="countdown-timer">5s</span>
+                    </div>
+                    <button id="proposeBtn" class="propose-btn">Propose</button>
                 </div>
             </div>
             <div id="transactionsContainer" class="transactions-container scrollable-container">
@@ -123,6 +126,44 @@
                 <div id="transactionDetailsContent">
                     <!-- Transaction details will be populated here -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Propose Transaction Modal -->
+    <div id="proposeModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Propose New Transaction</h3>
+                <button class="modal-close" onclick="safeManager.closeProposeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="proposeForm" class="propose-form">
+                    <div class="form-group">
+                        <label for="proposeTargetAddress">Target Contract Address:</label>
+                        <input type="text" id="proposeTargetAddress" placeholder="0x..." required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="proposeContractAbi">Contract ABI (JSON format):</label>
+                        <textarea id="proposeContractAbi" rows="4" placeholder='["function transfer(address _to, uint256 _value) returns (bool)"]' required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="proposeMethodName">Method Name:</label>
+                        <input type="text" id="proposeMethodName" placeholder="transfer" required>
+                    </div>
+                    
+                    <div class="form-group">
+                            <label for="proposeMethodParams">Method Parameters (JSON format):</label>
+                            <textarea id="proposeMethodParams" rows="2" placeholder='["0x742d35Cc6634C0532925a3b8D4C9db96c4b4d8b", 1000000]' required></textarea>
+                        </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Submit Transaction</button>
+                        <button type="button" class="btn" onclick="safeManager.closeProposeModal()">Cancel</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "send-transactions": "node --loader ts-node/esm src/send-transactions.ts",
+    "propose-transactions": "node --loader ts-node/esm src/send-transactions.ts",
     "dev": "node --loader ts-node/esm src/send-transactions.ts",
     "build": "tsc",
     "serve": "python3 -m http.server 8080 --directory public",

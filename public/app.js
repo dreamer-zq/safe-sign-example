@@ -537,6 +537,7 @@ class SafeManager {
         document.getElementById('connectSafe').addEventListener('click', () => this.connectToSafe());
         document.getElementById('saveConfig').addEventListener('click', () => this.saveConfiguration());
         document.getElementById('loadConfig').addEventListener('click', () => this.loadConfiguration());
+        document.getElementById('proposeBtn').addEventListener('click', () => this.openProposeModal());
     }
 
     saveConfiguration() {
@@ -1350,6 +1351,181 @@ class SafeManager {
         if (this.countdownInterval) {
             clearInterval(this.countdownInterval);
             this.countdownInterval = null;
+        }
+    }
+
+    /**
+     * Open propose transaction modal
+     */
+    openProposeModal() {
+        this.pauseAutoRefresh();
+        const modal = document.getElementById('proposeModal');
+        modal.classList.remove('hidden');
+        
+        // Bind form submit event
+        const form = document.getElementById('proposeForm');
+        form.addEventListener('submit', this.handleProposeSubmit.bind(this));
+    }
+
+    /**
+     * Close propose transaction modal
+     */
+    closeProposeModal() {
+        const modal = document.getElementById('proposeModal');
+        modal.classList.add('hidden');
+        
+        // Clear form
+        const form = document.getElementById('proposeForm');
+        form.reset();
+        
+        // Remove event listener
+        form.removeEventListener('submit', this.handleProposeSubmit.bind(this));
+        
+        this.resumeAutoRefresh();
+    }
+
+    /**
+     * Handle propose form submission
+     */
+    async handleProposeSubmit(event) {
+        event.preventDefault();
+        
+        try {
+            // Get Safe configuration from the current configuration
+            const safeAddress = document.getElementById('safeAddress').value;
+            const signerPrivateKey = document.getElementById('privateKey').value;
+            
+            // Validate configuration exists
+            if (!safeAddress || !signerPrivateKey) {
+                throw new Error('Please configure Safe address and private key first in the Configuration section');
+            }
+            
+            // Get Safe info to obtain owners and threshold
+            if (!this.safeClient) {
+                throw new Error('Please connect to Safe first');
+            }
+            
+            const safeInfo = await this.safeClient.getSafeInfo();
+            if (!safeInfo) {
+                throw new Error('Failed to get Safe information');
+            }
+            
+            // Get form data from propose modal
+            const data = {
+                safeAddress: safeAddress,
+                ownerAddresses: safeInfo.owners,
+                threshold: safeInfo.threshold,
+                targetAddress: document.getElementById('proposeTargetAddress').value.trim(),
+                contractAbi: document.getElementById('proposeContractAbi').value.trim(),
+                methodName: document.getElementById('proposeMethodName').value.trim(),
+                methodParams: document.getElementById('proposeMethodParams').value.trim(),
+                signerPrivateKey: signerPrivateKey
+            };
+            
+            // Validate form data
+            this.validateProposeData(data);
+            
+            // Show loading
+            this.showTransactionsLoading(true, 'Proposing transaction...');
+            
+            // Create and send transaction
+            const result = await this.createAndSendTransaction(data);
+            
+            // Show success message
+            if (result && result.success) {
+                showSuccess(`Transaction proposed successfully! Hash: ${result.transactionHash}`);
+            } else {
+                showSuccess('Transaction proposed successfully!');
+            }
+            
+            // Close modal
+            this.closeProposeModal();
+            
+            // Refresh transactions
+            await this.refreshPendingTransactions();
+            
+        } catch (error) {
+            console.error('Error proposing transaction:', error);
+            showError(`Failed to propose transaction: ${error.message}`);
+        } finally {
+            this.showTransactionsLoading(false);
+        }
+    }
+
+    /**
+     * Validate propose form data
+     */
+    validateProposeData(data) {
+        if (!data.targetAddress || !data.targetAddress.startsWith('0x')) {
+            throw new Error('Invalid target contract address');
+        }
+        
+        if (!data.contractAbi || data.contractAbi.trim() === '') {
+            throw new Error('Contract ABI is required');
+        }
+        
+        try {
+            const parsedAbi = JSON.parse(data.contractAbi);
+            if (!Array.isArray(parsedAbi)) {
+                throw new Error('ABI must be a JSON array');
+            }
+        } catch (e) {
+            // Check if it's a human-readable ABI format (array of strings)
+            try {
+                const humanReadableAbi = JSON.parse(data.contractAbi);
+                if (Array.isArray(humanReadableAbi) && humanReadableAbi.every(item => typeof item === 'string')) {
+                    // This is a valid human-readable ABI format
+                    return;
+                }
+            } catch (e2) {
+                // Not a valid human-readable ABI either
+            }
+            throw new Error(`Invalid ABI format - must be valid JSON array or human-readable ABI: ${e.message}`);
+        }
+        
+        if (!data.methodName) {
+            throw new Error('Method name is required');
+        }
+        
+        if (!data.methodParams || data.methodParams.trim() === '') {
+            throw new Error('Method parameters are required');
+        }
+        
+        try {
+            const parsedParams = JSON.parse(data.methodParams);
+            if (!Array.isArray(parsedParams)) {
+                throw new Error('Method parameters must be a JSON array');
+            }
+        } catch (e) {
+            throw new Error(`Invalid method parameters format - must be valid JSON array: ${e.message}`);
+        }
+    }
+
+    /**
+     * Create and send transaction using Safe SDK
+     */
+    async createAndSendTransaction(data) {
+        try {
+            // Import the send function from the JavaScript module
+            const { send } = await import('./send-transactions.js');
+            
+            // Call the send function with the new ABI-based parameters
+            const result = await send({
+                safeAddress: data.safeAddress,
+                ownerAddresses: data.ownerAddresses,
+                threshold: data.threshold,
+                targetAddress: data.targetAddress,
+                contractAbi: data.contractAbi,
+                methodName: data.methodName,
+                methodParams: data.methodParams,
+                signerPrivateKey: data.signerPrivateKey
+            });
+            
+            return result;
+            
+        } catch (error) {
+            console.error('Error in createAndSendTransaction:', error);
+            throw error;
         }
     }
 
