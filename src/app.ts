@@ -66,8 +66,9 @@ interface PendingTransaction {
 
 // Safe SDK imports
 import { createSafeClient } from '@safe-global/sdk-starter-kit';
-// Viem imports for address generation
+// Viem imports for address generation and function encoding
 import { privateKeyToAddress } from 'viem/accounts';
+import { encodeFunctionData, parseAbi, isAddress } from 'viem';
 
 // Declare global ethers from CDN
 declare global {
@@ -1054,6 +1055,12 @@ class SafeManager {
             return;
         }
 
+        // Validate target address format
+        if (!isAddress(targetAddress)) {
+            this.showError(`Invalid target address: "${targetAddress}". Address must be 42 characters long (including 0x prefix).`);
+            return;
+        }
+
         if (!this.config) {
             this.showError('Please configure and connect to Safe first');
             return;
@@ -1194,7 +1201,7 @@ class SafeManager {
     }
 
     /**
-     * Generate call data for contract method
+     * Generate call data for contract interaction
      */
     generateCallData(abi: string, methodName: string, params: string): string {
         try {
@@ -1202,110 +1209,44 @@ class SafeManager {
             const abiArray = JSON.parse(abi);
             const parameters = JSON.parse(params);
             
-            // Check if ethers is available for proper encoding
-            if (typeof window.ethers !== 'undefined' && window.ethers.Interface) {
-                try {
-                    const iface = new window.ethers.Interface(abiArray);
-                    return iface.encodeFunctionData(methodName, parameters);
-                } catch (ethersError) {
-                    console.warn('Ethers encoding failed, falling back to simple encoding:', ethersError);
-                }
-            }
-            
-            // Fallback: Find method in ABI
-            let method;
-            if (abiArray.length > 0 && typeof abiArray[0] === 'string') {
-                // Human-readable ABI format
-                const functionDef = abiArray.find((item: string) => 
-                    item.includes('function') && item.includes(methodName)
-                );
+            // Try using viem's encodeFunctionData first (most reliable)
+            try {
+                // Handle both human-readable ABI format and standard JSON ABI format
+                let parsedAbi;
                 
-                if (!functionDef) {
-                    throw new Error(`Method ${methodName} not found in human-readable ABI`);
-                }
-                
-                // Parse the function definition
-                const match = functionDef.match(/function\s+(\w+)\s*\(([^)]*)\)/);
-                if (!match) {
-                    throw new Error(`Invalid function definition: ${functionDef}`);
-                }
-                
-                const [, funcName, paramsStr] = match;
-                if (funcName !== methodName) {
-                    throw new Error(`Method name mismatch: expected ${methodName}, found ${funcName}`);
-                }
-                
-                // Parse parameters
-                const inputs = [];
-                if (paramsStr.trim()) {
-                    const paramParts = paramsStr.split(',').map((p: string) => p.trim());
-                    for (const param of paramParts) {
-                        const parts = param.split(/\s+/);
-                        if (parts.length >= 2) {
-                            inputs.push({
-                                type: parts[0],
-                                name: parts[1]
-                            });
-                        }
-                    }
-                }
-                
-                method = {
-                    name: methodName,
-                    type: 'function',
-                    inputs: inputs
-                };
-            } else {
-                // Standard JSON ABI format
-                method = abiArray.find((item: any) => 
-                    item.type === 'function' && item.name === methodName
-                );
-            }
-            
-            if (!method) {
-                throw new Error(`Method ${methodName} not found in ABI`);
-            }
-            
-            // Simple function selector generation
-            const functionSignature = `${methodName}(${method.inputs.map((input: any) => input.type).join(',')})`;
-            
-            // Simple hash function for function selector
-            let hash = 0;
-            for (let i = 0; i < functionSignature.length; i++) {
-                const char = functionSignature.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash; // Convert to 32-bit integer
-            }
-            
-            const functionSelector = '0x' + Math.abs(hash).toString(16).padStart(8, '0').slice(0, 8);
-            
-            // Basic parameter encoding
-            if (parameters.length === 0) {
-                return functionSelector;
-            }
-            
-            let encodedParams = '';
-            for (let i = 0; i < parameters.length && i < method.inputs.length; i++) {
-                const param = parameters[i];
-                const inputType = method.inputs[i].type;
-                
-                if (inputType === 'address') {
-                    encodedParams += param.replace('0x', '').toLowerCase().padStart(64, '0');
-                } else if (inputType.startsWith('uint')) {
-                    const value = BigInt(param);
-                    encodedParams += value.toString(16).padStart(64, '0');
+                if (abiArray.length > 0 && typeof abiArray[0] === 'string') {
+                    // Human-readable ABI format - use parseAbi
+                    parsedAbi = parseAbi(abiArray);
                 } else {
-                    // For other types, basic fallback
-                    const str = param.toString();
-                    let hex = '';
-                    for (let j = 0; j < str.length; j++) {
-                        hex += str.charCodeAt(j).toString(16).padStart(2, '0');
+                    // Standard JSON ABI format - use directly
+                    parsedAbi = abiArray;
+                }
+                
+                // Use viem's encodeFunctionData
+                const callData = encodeFunctionData({
+                    abi: parsedAbi,
+                    functionName: methodName,
+                    args: parameters
+                });
+                
+                return callData;
+                
+            } catch (viemError: any) {
+                console.warn('Viem encoding failed, falling back to ethers:', viemError);
+                
+                // Fallback to ethers if available
+                if (typeof window.ethers !== 'undefined' && window.ethers.Interface) {
+                    try {
+                        const iface = new window.ethers.Interface(abiArray);
+                        return iface.encodeFunctionData(methodName, parameters);
+                    } catch (ethersError: any) {
+                        console.warn('Ethers encoding also failed:', ethersError);
+                        throw new Error(`Both viem and ethers encoding failed. Viem error: ${viemError.message}, Ethers error: ${ethersError.message}`);
                     }
-                    encodedParams += hex.padStart(64, '0');
+                } else {
+                    throw new Error(`Viem encoding failed and ethers is not available: ${viemError.message}`);
                 }
             }
-            
-            return functionSelector + encodedParams;
             
         } catch (error: any) {
             console.error('Error generating call data:', error);
