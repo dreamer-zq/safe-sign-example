@@ -89,7 +89,7 @@ class SafeManager {
     private safeClient: any = null;
     private refreshInterval: NodeJS.Timeout | null = null;
     private countdownInterval: NodeJS.Timeout | null = null;
-    private countdownSeconds: number = 30;
+    private countdownSeconds: number = 10;
     private pendingTransactions: PendingTransaction[] = [];
 
     constructor() {
@@ -260,7 +260,7 @@ class SafeManager {
     async connectToSafe(): Promise<void> {
         
         if (!this.config) {
-            const errorMessage = '请先填写配置信息并点击"Save Configuration"按钮保存配置！';
+            const errorMessage = 'Please fill in the configuration information and click the "Save Configuration" button to save the configuration!';
             console.error('Configuration missing:', errorMessage);
             this.showError(errorMessage);
             alert(errorMessage);
@@ -269,7 +269,7 @@ class SafeManager {
 
         // Validate required configuration fields (Safe address is optional)
         if (!this.config.rpcUrl || !this.config.privateKey || !this.config.txServiceUrl) {
-            const errorMessage = '配置信息不完整，请确保填写必需字段（RPC URL、交易服务URL、私钥）！Safe地址可选。';
+            const errorMessage = 'Configuration is incomplete. Please ensure required fields are filled (RPC URL, Transaction Service URL, Private Key)! Safe address is optional.';
             console.error('Incomplete configuration:', errorMessage);
             this.showError(errorMessage);
             alert(errorMessage);
@@ -1408,7 +1408,7 @@ class SafeManager {
         // Set up interval for future refreshes
         this.refreshInterval = setInterval(() => {
             this.refreshPendingTransactions();
-        }, 30000);
+        }, 10000);
         this.startCountdown();
     }
 
@@ -1436,7 +1436,7 @@ class SafeManager {
             this.countdownInterval = null;
         }
         
-        this.countdownSeconds = 30;
+        this.countdownSeconds = 10;
         this.updateCountdownDisplay();
         
         this.countdownInterval = setInterval(() => {
@@ -1453,7 +1453,7 @@ class SafeManager {
      */
     resetCountdown(): void {
         // Only reset the counter, don't restart the interval
-        this.countdownSeconds = 30;
+        this.countdownSeconds = 10;
         this.updateCountdownDisplay();
     }
 
