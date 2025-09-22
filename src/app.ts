@@ -88,6 +88,7 @@ declare global {
 class SafeManager {
     private config: SafeConfig | null = null;
     private safeClient: any = null;
+    private safeInfo: SafeInfo | null = null;
     private refreshInterval: NodeJS.Timeout | null = null;
     private countdownInterval: NodeJS.Timeout | null = null;
     private countdownSeconds: number = 10;
@@ -327,6 +328,9 @@ class SafeManager {
                 safeInfo = await this.getSafeInfoFallback();
             }
 
+            // Store Safe info for later use
+            this.safeInfo = safeInfo;
+            
             this.updateSafeStatus(safeInfo);
             this.updateConnectionStatus('Connected');
             this.showSuccess('Connected to Safe successfully');
@@ -734,12 +738,8 @@ class SafeManager {
     async confirmTransactionFallback(safeTxHash: string): Promise<void> {
         if (!this.config) return;
 
-        const signerAddress = this.getSignerAddress(this.config.privateKey);
-        
         const signature = await this.generateSignature(safeTxHash);
-
         const url = `${this.config.txServiceUrl}/api/v2/multisig-transactions/${safeTxHash}/confirmations/`;
-
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -820,6 +820,162 @@ class SafeManager {
     }
 
 
+
+    /**
+     * Parse Contract ABI and populate method dropdown
+     */
+    parseContractAbi(): void {
+        const abiTextarea = document.getElementById('proposeContractAbi') as HTMLTextAreaElement;
+        const methodSelect = document.getElementById('proposeMethodName') as HTMLSelectElement;
+        const paramsTextarea = document.getElementById('proposeMethodParams') as HTMLTextAreaElement;
+        
+        if (!abiTextarea || !methodSelect || !paramsTextarea) {
+            console.error('Required elements not found');
+            return;
+        }
+        
+        try {
+            // Clear existing options
+            methodSelect.innerHTML = '<option value="">Select a method...</option>';
+            paramsTextarea.value = '';
+            
+            const abiText = abiTextarea.value.trim();
+            if (!abiText) {
+                console.log('ABI text is empty');
+                return;
+            }
+            
+            let abi: any[];
+            let functions: any[];
+            
+            try {
+                // First try to parse as JSON
+                abi = JSON.parse(abiText);
+                
+                // Check if it's a simplified format (array of strings) or full ABI format
+                if (abi.length > 0 && typeof abi[0] === 'string') {
+                    // Simplified format - use viem's parseAbi
+                    const parsedAbi = parseAbi(abi);
+                    
+                    // Extract functions from parsed ABI
+                    functions = parsedAbi.filter((item: any) => 
+                        item.type === 'function' && 
+                        item.stateMutability !== 'view' && 
+                        item.stateMutability !== 'pure'
+                    );
+                } else {
+                    // Full JSON ABI format
+                    functions = abi.filter((item: any) => 
+                        item.type === 'function' && 
+                        item.stateMutability !== 'view' && 
+                        item.stateMutability !== 'pure'
+                    );
+                }
+            } catch (parseError) {
+                console.error('Failed to parse ABI with viem:', parseError);
+                throw parseError;
+            }
+            
+            console.log('Filtered functions:', functions);
+            
+            if (functions.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No writable functions found';
+                option.disabled = true;
+                methodSelect.appendChild(option);
+                return;
+            }
+            
+            // Populate method dropdown
+            functions.forEach((func: any) => {
+                const option = document.createElement('option');
+                option.value = func.name;
+                option.textContent = func.name;
+                option.setAttribute('data-inputs', JSON.stringify(func.inputs || []));
+                methodSelect.appendChild(option);
+            });
+            
+        } catch (error) {
+            console.error('Failed to parse ABI:', error);
+            // Don't show error for incomplete JSON while typing
+            if (abiTextarea.value.trim().length > 10) {
+                this.showError('Invalid ABI format. Please check your JSON syntax.');
+            }
+        }
+    }
+
+    /**
+     * Generate method parameters example based on selected method
+     */
+    generateMethodParameters(): void {
+        const methodSelect = document.getElementById('proposeMethodName') as HTMLSelectElement;
+        const paramsTextarea = document.getElementById('proposeMethodParams') as HTMLTextAreaElement;
+        
+        if (!methodSelect || !paramsTextarea) return;
+        
+        const selectedOption = methodSelect.selectedOptions[0];
+        if (!selectedOption || !selectedOption.value) {
+            paramsTextarea.value = '';
+            return;
+        }
+        
+        try {
+            const inputs = JSON.parse(selectedOption.getAttribute('data-inputs') || '[]');
+            
+            if (inputs.length === 0) {
+                paramsTextarea.value = '[]';
+                return;
+            }
+            
+            // Generate example parameters based on type
+            const exampleParams = inputs.map((input: any) => {
+                return this.generateExampleValue(input.type, input.name);
+            });
+            
+            paramsTextarea.value = JSON.stringify(exampleParams, null, 2);
+            
+        } catch (error) {
+            console.error('Failed to generate parameters:', error);
+            paramsTextarea.value = '[]';
+        }
+    }
+
+    /**
+     * Generate example value based on Solidity type
+     */
+    private generateExampleValue(type: string, name: string): any {
+        // Handle array types
+        if (type.includes('[]')) {
+            const baseType = type.replace('[]', '');
+            return [this.generateExampleValue(baseType, name)];
+        }
+        
+        // Handle specific types
+        if (type.startsWith('uint') || type.startsWith('int')) {
+            return name.toLowerCase().includes('amount') || name.toLowerCase().includes('value') ? 
+                "10000" : "1"; // 1 ETH in wei for amounts, 1 for others
+        }
+        
+        if (type === 'address') {
+            return "0x4739680F1A3F6aE7E0036979E6A81D76Fd2EE6e3";
+        }
+        
+        if (type === 'bool') {
+            return true;
+        }
+        
+        if (type === 'string') {
+            return `example_${name}`;
+        }
+        
+        if (type.startsWith('bytes')) {
+            return "0x1234567890abcdef";
+        }
+        
+        // Default fallback
+        return `<${type}>`;
+    }
 
     /**
      * Open propose transaction modal
@@ -1044,7 +1200,7 @@ class SafeManager {
         
         const targetAddress = (document.getElementById('proposeTargetAddress') as HTMLInputElement)?.value;
         const contractAbi = (document.getElementById('proposeContractAbi') as HTMLTextAreaElement)?.value;
-        const methodName = (document.getElementById('proposeMethodName') as HTMLInputElement)?.value;
+        const methodName = (document.getElementById('proposeMethodName') as HTMLSelectElement)?.value;
         const methodParams = (document.getElementById('proposeMethodParams') as HTMLTextAreaElement)?.value;
         const value = (document.getElementById('proposeValue') as HTMLInputElement)?.value || '0';
         const operation = (document.getElementById('proposeOperation') as HTMLSelectElement)?.value || '0';
@@ -1311,6 +1467,34 @@ class SafeManager {
     /**
      * Show transaction details in a modal
      */
+    /**
+     * Render pending confirmations showing unconfirmed addresses
+     */
+    renderPendingConfirmations(confirmations: Array<{owner: string}>, confirmationsRequired: number): string {
+        if (!this.safeInfo || confirmationsRequired <= confirmations.length) {
+            return '';
+        }
+
+        // Get confirmed addresses
+        const confirmedAddresses = new Set(confirmations.map(conf => conf.owner.toLowerCase()));
+        
+        // Get unconfirmed addresses from Safe owners
+        const unconfirmedAddresses = this.safeInfo.owners.filter(
+            owner => !confirmedAddresses.has(owner.toLowerCase())
+        );
+
+        if (unconfirmedAddresses.length === 0) {
+            return '';
+        }
+
+        return unconfirmedAddresses.map(address => `
+            <div class="confirmation-item">
+                <span class="confirmation-address" title="${address}">${this.createTruncatedAddress(address)}</span>
+                <span class="confirmation-status pending">Pending</span>
+            </div>
+        `).join('');
+    }
+
     showTransactionModal(transaction: PendingTransaction): void {
         const modalContent = document.getElementById('transactionDetailsContent');
         if (!modalContent) return;
@@ -1371,12 +1555,7 @@ class SafeManager {
                             <span class="confirmation-status confirmed">Confirmed</span>
                         </div>
                     `).join('') : ''}
-                    ${confirmationsRequired > confirmations.length ? `
-                        <div class="confirmation-item">
-                            <span class="confirmation-address">Remaining signatures needed</span>
-                            <span class="confirmation-status pending">${confirmationsRequired - confirmations.length} pending</span>
-                        </div>
-                    ` : ''}
+                    ${this.renderPendingConfirmations(confirmations, confirmationsRequired)}
                 </div>
             </div>
         `;
