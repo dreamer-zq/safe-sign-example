@@ -5,7 +5,6 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "propose-transactions": "node --loader ts-node/esm src/send-transactions.ts",
     "dev": "webpack serve --mode development",
     "clean": "rm -rf dist",
     "build": "npm run clean && webpack --mode production",
