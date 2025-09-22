@@ -1,13 +1,21 @@
-/* Based on https://github.com/tsconfig/bases/blob/501da2bcd640cf95c95805783e1012b992338f28/bases/node22.json */
+/* TypeScript configuration for browser and Node.js environments */
 {
   "compilerOptions": {
-    "lib": ["es2023"],
-    "module": "node16",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "module": "es2022",
     "target": "es2022",
     "strict": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
-    "moduleResolution": "node16",
-    "outDir": "dist"
-  }
+    "moduleResolution": "bundler",
+    "outDir": "dist",
+    "declaration": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": false,
+    "noEmit": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "public"]
 }
