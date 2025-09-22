@@ -877,7 +877,7 @@ section h2 {
     border-radius: 12px;
     max-width: 800px;
     width: 95%;
-    max-height: 95vh;
+    max-height: 98vh;
     overflow-y: auto;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
 }
@@ -885,7 +885,7 @@ section h2 {
 @media (max-width: 768px) {
     .modal-content {
         width: 98%;
-        max-height: 92vh;
+        max-height: 96vh;
         border-radius: 8px;
     }
     
@@ -926,7 +926,7 @@ section h2 {
 @media (max-width: 480px) {
     .modal-content {
         width: 100%;
-        max-height: 95vh;
+        max-height: 98vh;
         border-radius: 0;
     }
     
@@ -948,7 +948,7 @@ section h2 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 24px;
+    padding: 16px 20px;
     border-bottom: 2px solid rgba(255, 255, 255, 0.2);
 }
 
@@ -983,15 +983,15 @@ section h2 {
 }
 
 .modal-body {
-    padding: 20px;
+    padding: 16px;
     background: rgba(255, 255, 255, 0.05);
-    margin: 15px 20px 20px 20px;
+    margin: 12px 16px 16px 16px;
     border-radius: 8px;
     backdrop-filter: blur(5px);
 }
 
 .modal-footer {
-    padding: 16px 24px;
+    padding: 12px 20px;
     border-top: 2px solid rgba(255, 255, 255, 0.2);
     display: flex;
     justify-content: flex-end;
@@ -1277,13 +1277,13 @@ section h2 {
 .propose-form {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 14px;
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .form-group label {
@@ -1294,7 +1294,8 @@ section h2 {
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
     padding: 12px 16px;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 8px;
@@ -1311,7 +1312,8 @@ section h2 {
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
     outline: none;
     border-color: rgba(255, 255, 255, 0.6);
     background: rgba(255, 255, 255, 0.15);
@@ -1324,12 +1326,28 @@ section h2 {
     font-family: inherit;
 }
 
+.form-group select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+.form-group select option {
+    background: #333;
+    color: white;
+    padding: 8px 12px;
+}
+
 .form-actions {
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    margin-top: 20px;
-    padding-top: 20px;
+    margin-top: 16px;
+    padding-top: 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 

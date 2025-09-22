@@ -39,10 +39,6 @@ async function send(): Promise<SafeClientResult> {
 
     const signerAddress = (await safeClient.protocolKit.getSafeProvider().getSignerAddress()) || '0x'
 
-    console.log('-Safe Address:', await safeClient.protocolKit.getAddress())
-    console.log('-Is deployed:', await safeClient.protocolKit.isSafeDeployed())
-    console.log('-Signer Address:', signerAddress)
-
     const transferUSDC = {
         to: usdcTokenAddress,
         data: generateTransferCallData(signerAddress, usdcAmount),
@@ -52,8 +48,6 @@ async function send(): Promise<SafeClientResult> {
     }
     const transactions = [transferUSDC]
     const txResult = await safeClient.send({ transactions })
-
-    console.log('-Send result: ', txResult)
 
     return txResult
 }
@@ -72,8 +66,6 @@ async function confirm({ safeAddress, transactions }: SafeClientResult, pk: stri
 
     const signerAddress = (await safeClient.protocolKit.getSafeProvider().getSignerAddress()) || '0x'
 
-    console.log('-Signer Address:', signerAddress)
-
     const pendingTransactions = await safeClient.getPendingTransactions()
 
     for (const transaction of pendingTransactions.results) {
@@ -82,8 +74,6 @@ async function confirm({ safeAddress, transactions }: SafeClientResult, pk: stri
         }
 
         const txResult = await safeClient.confirm({ safeTxHash: transaction.safeTxHash })
-
-        console.log('-Confirm result: ', txResult)
     }
 }
 

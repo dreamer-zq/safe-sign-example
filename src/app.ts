@@ -75,6 +75,7 @@ declare global {
         ethers: any;
         showError: (message: string, type?: string) => void;
         hideError: () => void;
+        hideSuccess: () => void;
         showSuccess: (message: string) => void;
         safeManager: SafeManager;
     }
@@ -105,17 +106,8 @@ class SafeManager {
                 throw new Error('Configuration not loaded');
             }
 
-            console.log('Initializing Safe SDK client...');
-            console.log('Config:', {
-                rpcUrl: this.config.rpcUrl,
-                txServiceUrl: this.config.txServiceUrl,
-                hasPrivateKey: !!this.config.privateKey,
-                safeAddress: this.config.safeAddress || 'Not provided - will create new Safe'
-            });
-            
             // If no Safe address is provided, we'll use fallback API calls
             if (!this.config.safeAddress || this.config.safeAddress.trim() === '') {
-                console.log('No Safe address provided, will use fallback API calls to create new Safe');
                 return null;
             }
             
@@ -126,10 +118,8 @@ class SafeManager {
                 txServiceUrl: this.config.txServiceUrl
             });
 
-            console.log('Safe SDK client initialized successfully');
             return safeClient;
         } catch (error) {
-            console.log('Safe SDK initialization failed, using fallback API calls:', error);
             return null;
         }
     }
@@ -144,7 +134,6 @@ class SafeManager {
                 this.safeClient = await this.initializeSafeClient();
                 await this.connectToSafe();
             } else {
-                console.log('No configuration found. Please configure the application first.');
                 this.updateConnectionStatus('Not configured');
             }
         } catch (error) {
@@ -221,9 +210,13 @@ class SafeManager {
             try {
                 this.config = JSON.parse(saved);
                 this.populateConfigForm();
+                this.showSuccess('Configuration loaded successfully!');
             } catch (error) {
                 console.error('Failed to load configuration:', error);
+                this.showError('Failed to load configuration: ' + (error as Error).message);
             }
+        } else {
+            this.showError('No saved configuration found');
         }
     }
 
@@ -265,7 +258,6 @@ class SafeManager {
      * Connect to Safe and load information
      */
     async connectToSafe(): Promise<void> {
-        console.log('Connect to Safe button clicked');
         
         if (!this.config) {
             const errorMessage = '请先填写配置信息并点击"Save Configuration"按钮保存配置！';
@@ -285,24 +277,15 @@ class SafeManager {
         }
 
         try {
-            console.log('Starting connection with config:', {
-                safeAddress: this.config.safeAddress,
-                rpcUrl: this.config.rpcUrl,
-                txServiceUrl: this.config.txServiceUrl,
-                hasPrivateKey: !!this.config.privateKey
-            });
             this.updateConnectionStatus('Connecting...');
             
             // Initialize Safe client first
-            console.log('Initializing Safe client...');
             this.safeClient = await this.initializeSafeClient();
-            console.log('Safe client initialized:', !!this.safeClient);
             
             let safeInfo: SafeInfo;
             
             if (this.safeClient && this.safeClient.protocolKit) {
                 // Use Safe SDK
-                console.log('Using Safe SDK to get Safe info');
                 const address = await this.safeClient.protocolKit.getAddress();
                 const nonce = await this.safeClient.protocolKit.getNonce();
                 const threshold = await this.safeClient.protocolKit.getThreshold();
@@ -321,7 +304,6 @@ class SafeManager {
                 };
             } else {
                 // Fallback to direct API calls
-                console.log('Using fallback API calls');
                 safeInfo = await this.getSafeInfoFallback();
             }
 
@@ -355,7 +337,6 @@ class SafeManager {
 
         // If no Safe address is provided, create a new Safe
         if (!this.config.safeAddress || this.config.safeAddress.trim() === '') {
-            console.log('No Safe address provided, creating new Safe...');
             return await this.createNewSafe();
         }
 
@@ -390,17 +371,12 @@ class SafeManager {
             throw new Error('Configuration not loaded');
         }
 
-        console.log('Creating new Safe...');
-        
         // Get signer address from private key
         const signerAddress = this.getSignerAddress(this.config.privateKey);
-        console.log('Signer address:', signerAddress);
         
         // For demo purposes, create a mock Safe info
         // In a real implementation, you would deploy a new Safe contract
         const mockSafeAddress = this.generateMockSafeAddress(signerAddress);
-        
-        console.log('Mock Safe created with address:', mockSafeAddress);
         
         // Update config with the new Safe address
         this.config.safeAddress = mockSafeAddress;
@@ -438,12 +414,10 @@ class SafeManager {
             // Use viem's privateKeyToAddress function to generate the address
             const address = privateKeyToAddress(formattedPrivateKey as `0x${string}`);
             
-            console.log('Generated address from private key:', address);
             return address;
         } catch (error) {
-            console.error('Error getting signer address:', error);
-            // Return a fallback address in case of error
-            return '0x0000000000000000000000000000000000000000';
+            console.error('Failed to generate address from private key:', error);
+            throw new Error('Invalid private key format');
         }
     }
 
@@ -473,9 +447,7 @@ class SafeManager {
 
             if (this.safeClient) {
                 // Use Safe SDK
-                console.log('Using Safe SDK to get pending transactions');
                 const result = await this.safeClient.getPendingTransactions();
-                console.log('Safe SDK returned result:', result);
                 
                 // Ensure we have an array
                 if (Array.isArray(result)) {
@@ -488,18 +460,14 @@ class SafeManager {
                     console.warn('Unexpected result format from Safe SDK:', result);
                     transactions = [];
                 }
-                console.log('Safe SDK processed transactions:', transactions.length, transactions);
             } else {
                 // Fallback to direct API calls
-                console.log('Using fallback API calls for pending transactions');
                 transactions = await this.getPendingTransactionsFallback();
-                console.log('Fallback API returned transactions:', transactions.length, transactions);
             }
 
             // Store transactions for modal access
             this.pendingTransactions = transactions;
             
-            console.log('Rendering transactions:', transactions.length);
             this.renderPendingTransactions(transactions);
             this.resetCountdown();
             
@@ -633,7 +601,14 @@ class SafeManager {
         const confirmations = transaction.confirmations || [];
         const confirmationsRequired = transaction.confirmationsRequired || 1;
         const isConfirmed = confirmations.length >= confirmationsRequired;
-        const canConfirm = !isConfirmed && !transaction.isExecuted;
+        
+        // Check if current signer has already confirmed this transaction
+        const currentSignerAddress = this.config ? this.getSignerAddress(this.config.privateKey) : '';
+        const hasCurrentSignerConfirmed = confirmations.some(conf => 
+            conf.owner.toLowerCase() === currentSignerAddress.toLowerCase()
+        );
+        
+        const canConfirm = !isConfirmed && !transaction.isExecuted && !hasCurrentSignerConfirmed;
         const canExecute = isConfirmed && !transaction.isExecuted;
 
         // Safely handle safeTxHash
@@ -653,7 +628,7 @@ class SafeManager {
                 <div class="transaction-details">
                     <div class="detail-item">
                         <div class="detail-label">To Address</div>
-                        <div class="detail-value">${transaction.to || 'Unknown'}</div>
+                        <div class="detail-value" title="${transaction.to || 'Unknown'}">${this.createTruncatedAddress(transaction.to || 'Unknown')}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Value (ETH)</div>
@@ -683,6 +658,11 @@ class SafeManager {
                             Confirm Transaction
                         </button>
                     ` : ''}
+                    ${hasCurrentSignerConfirmed && !isConfirmed ? `
+                        <button class="btn btn-secondary" disabled>
+                            Already Confirmed (${confirmations.length}/${confirmationsRequired})
+                        </button>
+                    ` : ''}
                     ${canExecute && transaction.safeTxHash ? `
                         <button class="btn btn-execute" onclick="safeManager.executeTransaction('${transaction.safeTxHash}')">
                             Execute Transaction
@@ -706,10 +686,8 @@ class SafeManager {
             this.showTransactionsLoading(true, 'Confirming transaction...');
 
             if (this.safeClient) {
-                // Use Safe SDK
-                await this.safeClient.confirm({ safeTxHash });
+                const result = await this.safeClient.confirm(safeTxHash);
             } else {
-                // Fallback to direct API calls
                 await this.confirmTransactionFallback(safeTxHash);
             }
 
@@ -730,21 +708,26 @@ class SafeManager {
     async confirmTransactionFallback(safeTxHash: string): Promise<void> {
         if (!this.config) return;
 
-        const signature = await this.generateSignature(safeTxHash);
+        const signerAddress = this.getSignerAddress(this.config.privateKey);
         
-        const response = await fetch(
-            `${this.config.txServiceUrl}/api/v1/multisig-transactions/${safeTxHash}/confirmations/`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ signature })
-            }
-        );
+        const signature = await this.generateSignature(safeTxHash);
+
+        const url = `${this.config.txServiceUrl}/api/v1/multisig-transactions/${safeTxHash}/confirmations/`;
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                signature: signature
+            })
+        });
 
         if (!response.ok) {
-            throw new Error(`Failed to confirm transaction: ${response.statusText}`);
+            const errorText = await response.text();
+            console.error('Response error text:', errorText);
+            throw new Error(`Failed to confirm transaction: ${response.statusText} - ${errorText}`);
         }
     }
 
@@ -763,7 +746,6 @@ class SafeManager {
                 const transaction = pendingTransactions.results.find((tx: any) => tx.safeTxHash === safeTxHash);
                 if (transaction) {
                     const result = await this.safeClient.protocolKit.executeTransaction(transaction);
-                    console.log('Transaction executed:', result);
                 } else {
                     throw new Error('Transaction not found');
                 }
@@ -848,6 +830,9 @@ class SafeManager {
         const contractAbi = (document.getElementById('proposeContractAbi') as HTMLTextAreaElement)?.value;
         const methodName = (document.getElementById('proposeMethodName') as HTMLInputElement)?.value;
         const methodParams = (document.getElementById('proposeMethodParams') as HTMLTextAreaElement)?.value;
+        const value = (document.getElementById('proposeValue') as HTMLInputElement)?.value || '0';
+        const operation = (document.getElementById('proposeOperation') as HTMLSelectElement)?.value || '0';
+        const safeTxGas = (document.getElementById('proposeSafeTxGas') as HTMLInputElement)?.value || '100000';
 
         if (!targetAddress || !contractAbi || !methodName || !methodParams) {
             this.showError('Please fill in all required fields');
@@ -866,7 +851,10 @@ class SafeManager {
                 targetAddress,
                 contractAbi,
                 methodName,
-                methodParams
+                methodParams,
+                value,
+                operation: parseInt(operation),
+                safeTxGas: parseInt(safeTxGas)
             });
 
             this.showSuccess('Transaction proposed successfully');
@@ -889,8 +877,19 @@ class SafeManager {
         contractAbi: string;
         methodName: string;
         methodParams: string;
+        value?: string;
+        operation?: number;
+        safeTxGas?: number;
     }): Promise<void> {
-        const { targetAddress, contractAbi, methodName, methodParams } = params;
+        const { 
+            targetAddress, 
+            contractAbi, 
+            methodName, 
+            methodParams, 
+            value = '0', 
+            operation = 0, 
+            safeTxGas = 100000 
+        } = params;
 
         try {
             // Generate call data
@@ -900,18 +899,15 @@ class SafeManager {
             const transaction = {
                 to: targetAddress,
                 data: callData,
-                value: '0',
-                operation: 0, // CALL operation
-                safeTxGas: 100000,
+                value: value,
+                operation: operation,
+                safeTxGas: safeTxGas,
             };
-
-            console.log('Proposing transaction:', transaction);
 
             // Try using Safe SDK first
             if (this.safeClient) {
                 try {
                     const result = await this.safeClient.send({ transactions: [transaction] });
-                    console.log('Transaction proposed via Safe SDK:', result);
                     return;
                 } catch (sdkError) {
                     console.warn('Safe SDK failed, using fallback:', sdkError);
@@ -963,13 +959,10 @@ class SafeManager {
             contractTransactionHash: safeTxHash,
             sender: signerAddress,
             signature: this.generatePlaceholderSignature(signerAddress),
-            origin: "safe-sign-example"
+            origin: 'safe-sign-example'
         };
 
-        console.log('Sending transaction data to API:', transactionData);
-
-        // Submit to Safe transaction service
-        const response = await fetch(`${this.config.txServiceUrl}v1/safes/${this.config.safeAddress}/multisig-transactions/`, {
+        const response = await fetch(`${this.config.txServiceUrl}/api/v1/safes/${this.config.safeAddress}/multisig-transactions/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -979,12 +972,10 @@ class SafeManager {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('API Error Response:', errorText);
-            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            throw new Error(`Failed to propose transaction: ${response.statusText} - ${errorText}`);
         }
 
         const result = await response.json();
-        console.log('Transaction proposal result:', result);
     }
 
     /**
@@ -1062,7 +1053,6 @@ class SafeManager {
             
             // Simple function selector generation
             const functionSignature = `${methodName}(${method.inputs.map((input: any) => input.type).join(',')})`;
-            console.log('Function signature:', functionSignature);
             
             // Simple hash function for function selector
             let hash = 0;
@@ -1179,7 +1169,7 @@ class SafeManager {
             </div>
             <div class="transaction-detail-item">
                 <span class="transaction-detail-label">To Address:</span>
-                <span class="transaction-detail-value hash">${transaction.to || 'N/A'}</span>
+                <span class="transaction-detail-value hash" title="${transaction.to || 'N/A'}">${this.createTruncatedAddress(transaction.to || 'N/A')}</span>
             </div>
             <div class="transaction-detail-item">
                 <span class="transaction-detail-label">Value:</span>
@@ -1221,7 +1211,7 @@ class SafeManager {
                     </div>
                     ${confirmations.length > 0 ? confirmations.map(conf => `
                         <div class="confirmation-item">
-                            <span class="confirmation-address">${conf.owner || 'Unknown'}</span>
+                            <span class="confirmation-address" title="${conf.owner || 'Unknown'}">${this.createTruncatedAddress(conf.owner || 'Unknown')}</span>
                             <span class="confirmation-status confirmed">Confirmed</span>
                         </div>
                     `).join('') : ''}
@@ -1292,6 +1282,7 @@ class SafeManager {
         const safeAddressElement = document.getElementById('currentSafeAddress');
         if (safeAddressElement) {
             safeAddressElement.textContent = this.createTruncatedAddress(safeInfo.address);
+            safeAddressElement.title = safeInfo.address; // Add tooltip with full address
         }
 
         // Update Is Deployed status
@@ -1306,6 +1297,7 @@ class SafeManager {
         if (signerAddressElement && this.config) {
             const signerAddr = this.getSignerAddress(this.config.privateKey);
             signerAddressElement.textContent = this.createTruncatedAddress(signerAddr);
+            signerAddressElement.title = signerAddr; // Add tooltip with full address
         }
 
         // Update Signer Balance with real balance query
@@ -1337,7 +1329,7 @@ class SafeManager {
             }
 
             const balance = await this.getAddressBalance(signerAddress);
-            element.textContent = `${balance} ETH`;
+            element.textContent = balance;
         } catch (error) {
             console.error('Error updating signer balance:', error);
             element.textContent = 'Error';
@@ -1378,10 +1370,10 @@ class SafeManager {
             // Convert from wei to ETH
             const balanceWei = BigInt(data.result);
             const balanceEth = Number(balanceWei) / Math.pow(10, 18);
-            return balanceEth.toFixed(4);
+            return balanceEth.toFixed(2);
         } catch (error) {
             console.error('Error getting address balance:', error);
-            return '0.0000';
+            return '0.00';
         }
     }
 
@@ -1479,13 +1471,17 @@ class SafeManager {
      * Show loading state
      */
     showTransactionsLoading(show: boolean, message: string = 'Loading...'): void {
-        const loadingElement = document.getElementById('transactionsLoading');
-        if (loadingElement) {
+        const loadingOverlay = document.getElementById('transactionsLoadingOverlay');
+        const loadingText = document.querySelector('.transactions-loading-text');
+        
+        if (loadingOverlay) {
             if (show) {
-                loadingElement.textContent = message;
-                loadingElement.style.display = 'block';
+                if (loadingText) {
+                    loadingText.textContent = message;
+                }
+                loadingOverlay.classList.remove('hidden');
             } else {
-                loadingElement.style.display = 'none';
+                loadingOverlay.classList.add('hidden');
             }
         }
     }
@@ -1494,13 +1490,20 @@ class SafeManager {
      * Show error message
      */
     showError(message: string, type: string = 'error'): void {
-        console.error(message);
-        // Implementation for showing error in UI
-        const errorElement = document.getElementById('errorMessage');
-        if (errorElement) {
-            errorElement.textContent = message;
-            errorElement.className = `alert alert-${type}`;
-            errorElement.style.display = 'block';
+        const errorDisplay = document.getElementById('errorDisplay');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        if (errorDisplay && errorMessage) {
+            errorMessage.textContent = message;
+            errorDisplay.className = `error-display ${type === 'success' ? 'success' : ''}`;
+            errorDisplay.classList.remove('hidden');
+            
+            // Auto hide after 5 seconds
+            setTimeout(() => {
+                if (errorDisplay) {
+                    errorDisplay.classList.add('hidden');
+                }
+            }, 5000);
         }
     }
 
@@ -1508,16 +1511,19 @@ class SafeManager {
      * Show success message
      */
     showSuccess(message: string): void {
-        console.log(message);
-        // Implementation for showing success in UI
-        const successElement = document.getElementById('successMessage');
-        if (successElement) {
-            successElement.textContent = message;
-            successElement.className = 'alert alert-success';
-            successElement.style.display = 'block';
+        const successDisplay = document.getElementById('successDisplay');
+        const successMessage = document.getElementById('successMessage');
+        
+        if (successDisplay && successMessage) {
+            successMessage.textContent = message;
+            successDisplay.classList.remove('hidden');
+            
+            // Auto hide after 5 seconds
             setTimeout(() => {
-                successElement.style.display = 'none';
-            }, 3000);
+                if (successDisplay) {
+                    successDisplay.classList.add('hidden');
+                }
+            }, 5000);
         }
     }
 }
@@ -1543,9 +1549,16 @@ window.showError = (message: string, type: string = 'error') => {
 };
 
 window.hideError = () => {
-    const errorElement = document.getElementById('errorMessage');
-    if (errorElement) {
-        errorElement.style.display = 'none';
+    const errorDisplay = document.getElementById('errorDisplay');
+    if (errorDisplay) {
+        errorDisplay.classList.add('hidden');
+    }
+};
+
+window.hideSuccess = () => {
+    const successDisplay = document.getElementById('successDisplay');
+    if (successDisplay) {
+        successDisplay.classList.add('hidden');
     }
 };
 

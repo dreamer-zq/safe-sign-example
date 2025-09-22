@@ -9,9 +9,9 @@
     "dev": "webpack serve --mode development",
     "build": "webpack --mode production",
     "build-ts": "tsc",
-    "serve": "python3 -m http.server 8080 --directory public",
-    "serve-dist": "python3 -m http.server 8082 --directory dist",
-    "start": "npm run serve"
+    "clean": "rm -rf dist",
+    "serve": "python3 -m http.server 8081 --directory dist",
+    "start": "npm run build && npm run serve"
   },
   "keywords": [],
   "author": "",
