@@ -273,18 +273,14 @@ class SafeManager {
         
         if (!this.config) {
             const errorMessage = 'Please fill in the configuration information and click the "Save Configuration" button to save the configuration!';
-            console.error('Configuration missing:', errorMessage);
             this.showError(errorMessage);
-            alert(errorMessage);
             return;
         }
 
         // Validate required configuration fields (Safe address is optional)
         if (!this.config.rpcUrl || !this.config.privateKey || !this.config.txServiceUrl) {
             const errorMessage = 'Configuration is incomplete. Please ensure required fields are filled (RPC URL, Transaction Service URL, Private Key)! Safe address is optional.';
-            console.error('Incomplete configuration:', errorMessage);
             this.showError(errorMessage);
-            alert(errorMessage);
             return;
         }
 

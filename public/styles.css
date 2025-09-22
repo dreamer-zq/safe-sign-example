@@ -419,6 +419,7 @@ section h2 {
     text-decoration: none;
     display: inline-block;
     text-align: center;
+    width: 200px;
 }
 
 .btn-primary {
