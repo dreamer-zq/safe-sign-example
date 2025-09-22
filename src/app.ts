@@ -149,9 +149,11 @@ class SafeManager {
         const saveBtn = document.getElementById('saveConfig');
         const loadBtn = document.getElementById('loadConfig');
         const connectBtn = document.getElementById('connectSafe');
+        const createSafeBtn = document.getElementById('createSafe');
         const refreshBtn = document.getElementById('refreshBtn');
         const proposeBtn = document.getElementById('proposeBtn');
         const proposeForm = document.getElementById('proposeForm');
+        const createSafeForm = document.getElementById('createSafeForm');
 
         if (saveBtn) {
             saveBtn.addEventListener('click', () => this.saveConfiguration());
@@ -165,6 +167,10 @@ class SafeManager {
             connectBtn.addEventListener('click', () => this.connectToSafe());
         }
 
+        if (createSafeBtn) {
+            createSafeBtn.addEventListener('click', () => this.openCreateSafeModal());
+        }
+
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => this.refreshPendingTransactions());
         }
@@ -175,6 +181,10 @@ class SafeManager {
 
         if (proposeForm) {
             proposeForm.addEventListener('submit', (e) => this.handleProposeSubmit(e));
+        }
+
+        if (createSafeForm) {
+            createSafeForm.addEventListener('submit', (e) => this.handleCreateSafeSubmit(e));
         }
     }
 
@@ -276,6 +286,15 @@ class SafeManager {
             return;
         }
 
+        // Check if Safe address is provided
+        if (!this.config.safeAddress) {
+            const errorMessage = 'Safe address is required to connect. Please provide a Safe address or create a new Safe first.';
+            console.error('Safe address missing:', errorMessage);
+            this.showError(errorMessage);
+            this.updateConnectionStatus('No Safe Address');
+            return;
+        }
+
         try {
             this.updateConnectionStatus('Connecting...');
             
@@ -341,7 +360,7 @@ class SafeManager {
         }
 
         try {
-            const response = await fetch(`${this.config.txServiceUrl}/api/v1/safes/${this.config.safeAddress}/`);
+            const response = await fetch(`${this.config.txServiceUrl}/api/v2/safes/${this.config.safeAddress}/`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch Safe info: ${response.statusText}`);
             }
@@ -441,6 +460,12 @@ class SafeManager {
      */
     async refreshPendingTransactions(): Promise<void> {
         if (!this.config) return;
+        
+        // Check if Safe address is available before attempting to fetch transactions
+        if (!this.config.safeAddress) {
+            console.log('No Safe address configured, skipping transaction refresh');
+            return;
+        }
 
         try {
             let transactions: PendingTransaction[] = [];
@@ -686,7 +711,7 @@ class SafeManager {
             this.showTransactionsLoading(true, 'Confirming transaction...');
 
             if (this.safeClient) {
-                const result = await this.safeClient.confirm(safeTxHash);
+                const result = await this.safeClient.confirm({ safeTxHash: safeTxHash });
             } else {
                 await this.confirmTransactionFallback(safeTxHash);
             }
@@ -712,7 +737,7 @@ class SafeManager {
         
         const signature = await this.generateSignature(safeTxHash);
 
-        const url = `${this.config.txServiceUrl}/api/v1/multisig-transactions/${safeTxHash}/confirmations/`;
+        const url = `${this.config.txServiceUrl}/api/v2/multisig-transactions/${safeTxHash}/confirmations/`;
 
         const response = await fetch(url, {
             method: 'POST',
@@ -821,6 +846,196 @@ class SafeManager {
     }
 
     /**
+     * Open create safe modal
+     */
+    openCreateSafeModal(): void {
+        const modal = document.getElementById('createSafeModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
+    }
+
+    /**
+     * Close create safe modal
+     */
+    closeCreateSafeModal(): void {
+        const modal = document.getElementById('createSafeModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        // Reset form
+        const form = document.getElementById('createSafeForm') as HTMLFormElement;
+        if (form) {
+            form.reset();
+        }
+    }
+
+    /**
+     * Handle create safe form submission
+     */
+    async handleCreateSafeSubmit(event: Event): Promise<void> {
+        event.preventDefault();
+        
+        const ownersTextarea = document.getElementById('createSafeOwners') as HTMLTextAreaElement;
+        const thresholdInput = document.getElementById('createSafeThreshold') as HTMLInputElement;
+        const saltNonceInput = document.getElementById('createSafeSaltNonce') as HTMLInputElement;
+
+        if (!ownersTextarea || !thresholdInput || !saltNonceInput) {
+            this.showError('Form elements not found');
+            return;
+        }
+
+        const ownersText = ownersTextarea.value.trim();
+        const threshold = parseInt(thresholdInput.value);
+        const saltNonce = saltNonceInput.value.trim();
+
+        // Parse owner addresses
+        const owners = ownersText.split('\n')
+            .map(addr => addr.trim())
+            .filter(addr => addr.length > 0);
+
+        // Validate inputs
+        if (owners.length === 0) {
+            this.showError('Please provide at least one owner address');
+            return;
+        }
+
+        if (threshold < 1 || threshold > owners.length) {
+            this.showError(`Threshold must be between 1 and ${owners.length}`);
+            return;
+        }
+
+        if (!saltNonce) {
+            this.showError('Please provide a salt nonce');
+            return;
+        }
+
+        // Validate owner addresses
+        for (const owner of owners) {
+            if (!this.isValidAddress(owner)) {
+                this.showError(`Invalid address: ${owner}`);
+                return;
+            }
+        }
+
+        try {
+            await this.createSafe(owners, threshold, saltNonce);
+        } catch (error) {
+            console.error('Create Safe failed:', error);
+            this.showError(`Failed to create Safe: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * Create a new Safe wallet
+     */
+    async createSafe(owners: string[], threshold: number, saltNonce: string): Promise<void> {
+        if (!this.config) {
+            throw new Error('Configuration not loaded');
+        }
+
+        // Validate required configuration fields
+        if (!this.config.rpcUrl || !this.config.privateKey || !this.config.txServiceUrl) {
+            throw new Error('Configuration is incomplete. Please ensure required fields are filled (RPC URL, Transaction Service URL, Private Key)!');
+        }
+
+        this.showCreateSafeLoading(true, 'Creating Safe...');
+
+        try {
+            // Create Safe client with safeOptions for deployment
+            const safeClient = await createSafeClient({
+                provider: this.config.rpcUrl,
+                txServiceUrl: this.config.txServiceUrl,
+                signer: this.config.privateKey,
+                safeOptions: {
+                    owners: owners,
+                    threshold: threshold,
+                    saltNonce: saltNonce
+                }
+            });
+
+            // Get the predicted Safe address before deployment
+            const predictedSafeAddress = await safeClient.protocolKit.getAddress();
+            
+            // Check if Safe is already deployed
+            const isDeployed = await safeClient.protocolKit.isSafeDeployed();
+            
+            if (isDeployed) {
+                throw new Error('Safe with these parameters is already deployed');
+            }
+
+            // Deploy the Safe by sending a dummy transaction
+            // This will trigger the Safe deployment as part of the first transaction
+            const dummyTransaction = {
+                to: predictedSafeAddress,
+                value: '0',
+                data: '0x'
+            };
+            
+            const deploymentResult = await safeClient.send({ 
+                transactions: [dummyTransaction]
+            });
+            
+            console.log('Safe deployment result:', deploymentResult);
+            
+            // Wait a moment for deployment to be processed
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Update configuration with new Safe address
+            this.config.safeAddress = predictedSafeAddress;
+            localStorage.setItem('safeConfig', JSON.stringify(this.config));
+            
+            // Update the Safe address input field
+            const safeAddressInput = document.getElementById('safeAddress') as HTMLInputElement;
+            if (safeAddressInput) {
+                safeAddressInput.value = predictedSafeAddress;
+            }
+
+            // Create a new Safe client connected to the deployed Safe
+            this.safeClient = await createSafeClient({
+                provider: this.config.rpcUrl,
+                txServiceUrl: this.config.txServiceUrl,
+                signer: this.config.privateKey,
+                safeAddress: predictedSafeAddress
+            });
+
+            // Get Safe info and update status
+            const safeInfo: SafeInfo = {
+                address: predictedSafeAddress,
+                nonce: 0,
+                threshold: threshold,
+                owners: owners,
+                modules: [],
+                fallbackHandler: '',
+                guard: '',
+                version: '1.3.0'
+            };
+
+            this.updateSafeStatus(safeInfo);
+            this.updateConnectionStatus('Connected');
+            
+            this.showSuccess(`Safe created successfully! Address: ${this.createTruncatedAddress(predictedSafeAddress)}`);
+            this.closeCreateSafeModal();
+            
+            // Start auto refresh to load any pending transactions
+            this.startAutoRefresh();
+
+        } catch (error: any) {
+            console.error('Safe creation failed:', error);
+            this.showError(`Safe creation failed: ${error?.message || 'Unknown error'}`);
+        } finally {
+            this.showCreateSafeLoading(false);
+        }
+    }
+
+    /**
+     * Validate Ethereum address format
+     */
+    private isValidAddress(address: string): boolean {
+        return /^0x[a-fA-F0-9]{40}$/.test(address);
+    }
+
+    /**
      * Handle propose transaction form submission
      */
     async handleProposeSubmit(event: Event): Promise<void> {
@@ -845,7 +1060,7 @@ class SafeManager {
         }
 
         try {
-            this.showTransactionsLoading(true, 'Proposing transaction...');
+            this.showProposeLoading(true, 'Proposing transaction...');
             
             await this.proposeTransaction({
                 targetAddress,
@@ -865,7 +1080,7 @@ class SafeManager {
             console.error('Failed to propose transaction:', error);
             this.showError(`Failed to propose transaction: ${error.message}`);
         } finally {
-            this.showTransactionsLoading(false);
+            this.showProposeLoading(false);
         }
     }
 
@@ -962,7 +1177,7 @@ class SafeManager {
             origin: 'safe-sign-example'
         };
 
-        const response = await fetch(`${this.config.txServiceUrl}/api/v1/safes/${this.config.safeAddress}/multisig-transactions/`, {
+        const response = await fetch(`${this.config.txServiceUrl}/api/v2/safes/${this.config.safeAddress}/multisig-transactions/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1482,6 +1697,44 @@ class SafeManager {
                 loadingOverlay.classList.remove('hidden');
             } else {
                 loadingOverlay.classList.add('hidden');
+            }
+        }
+    }
+
+    /**
+     * Show or hide loading overlay for Propose Transaction modal
+     */
+    showProposeLoading(show: boolean, message: string = 'Proposing transaction...'): void {
+        const overlay = document.getElementById('proposeLoadingOverlay');
+        const messageElement = overlay?.querySelector('.modal-loading-text');
+        
+        if (overlay) {
+            if (show) {
+                overlay.classList.remove('hidden');
+                if (messageElement) {
+                    messageElement.textContent = message;
+                }
+            } else {
+                overlay.classList.add('hidden');
+            }
+        }
+    }
+
+    /**
+     * Show or hide loading overlay for Create Safe modal
+     */
+    showCreateSafeLoading(show: boolean, message: string = 'Creating Safe...'): void {
+        const overlay = document.getElementById('createSafeLoadingOverlay');
+        const messageElement = overlay?.querySelector('.modal-loading-text');
+        
+        if (overlay) {
+            if (show) {
+                overlay.classList.remove('hidden');
+                if (messageElement) {
+                    messageElement.textContent = message;
+                }
+            } else {
+                overlay.classList.add('hidden');
             }
         }
     }

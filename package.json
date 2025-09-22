@@ -7,9 +7,9 @@
   "scripts": {
     "propose-transactions": "node --loader ts-node/esm src/send-transactions.ts",
     "dev": "webpack serve --mode development",
-    "build": "webpack --mode production",
-    "build-ts": "tsc",
     "clean": "rm -rf dist",
+    "build": "npm run clean && webpack --mode production",
+    "build-ts": "tsc",
     "serve": "python3 -m http.server 8080 --directory dist",
     "start": "npm run build && npm run serve"
   },

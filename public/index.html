@@ -77,7 +77,8 @@
                     </div>
                 </div>
                 <div class="status-actions">
-                    <button id="connectSafe" class="btn btn-primary">Connect to Safe</button>
+                    <button id="createSafe" class="btn btn-success">Create Safe</button>
+                    <button id="connectSafe" class="btn btn-primary">Connect Safe</button>
                 </div>
             </section>
         </div>
@@ -183,6 +184,11 @@
                     </div>
                 </form>
             </div>
+            <!-- Propose Modal Loading Overlay -->
+            <div id="proposeLoadingOverlay" class="modal-loading-overlay hidden">
+                <div class="modal-loading-spinner"></div>
+                <div class="modal-loading-text">Proposing transaction...</div>
+            </div>
         </div>
     </div>
 
@@ -192,6 +198,47 @@
             <span class="error-icon">⚠️</span>
             <span id="errorMessage" class="error-message"></span>
             <button class="error-close" onclick="hideError()">&times;</button>
+        </div>
+    </div>
+
+    <!-- Create Safe Modal -->
+    <div id="createSafeModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Safe</h3>
+                <button class="modal-close" onclick="safeManager.closeCreateSafeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="createSafeForm" class="propose-form">
+                    <div class="form-group">
+                        <label for="createSafeOwners">Owner Addresses (one per line):</label>
+                        <textarea id="createSafeOwners" rows="4" placeholder="0x742d35Cc6634C0532925a3b8D4C9db96c4b4d8b&#10;0x123...&#10;0x456..." required></textarea>
+                        <small class="form-help">Enter each owner address on a new line</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="createSafeThreshold">Threshold:</label>
+                        <input type="number" id="createSafeThreshold" min="1" placeholder="2" required>
+                        <small class="form-help">Number of signatures required for transactions</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="createSafeSaltNonce">Salt Nonce:</label>
+                        <input type="text" id="createSafeSaltNonce" placeholder="123456789" required>
+                        <small class="form-help">Unique number for deterministic address generation</small>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="safeManager.closeCreateSafeModal()">Cancel</button>
+                        <button type="submit" class="btn btn-success">Create Safe</button>
+                    </div>
+                </form>
+            </div>
+            <!-- Create Safe Modal Loading Overlay -->
+            <div id="createSafeLoadingOverlay" class="modal-loading-overlay hidden">
+                <div class="modal-loading-spinner"></div>
+                <div class="modal-loading-text">Creating Safe...</div>
+            </div>
         </div>
     </div>
 
