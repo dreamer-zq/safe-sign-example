@@ -65,10 +65,16 @@ interface PendingTransaction {
 }
 
 // Safe SDK imports
-import { createSafeClient } from '@safe-global/sdk-starter-kit';
+import { createSafeClient, SafeClient } from '@safe-global/sdk-starter-kit';
+import Safe, { 
+    SafeAccountConfig, 
+    SafeDeploymentConfig, 
+    PredictedSafeProps 
+} from '@safe-global/protocol-kit';
 // Viem imports for address generation and function encoding
 import { privateKeyToAddress } from 'viem/accounts';
 import { encodeFunctionData, parseAbi, isAddress } from 'viem';
+import { waitForTransactionReceipt } from 'viem/actions';
 
 // Declare global ethers from CDN
 declare global {
@@ -87,7 +93,7 @@ declare global {
  */
 class SafeManager {
     private config: SafeConfig | null = null;
-    private safeClient: any = null;
+    private safeClient: SafeClient | null = null;
     private safeInfo: SafeInfo | null = null;
     private refreshInterval: NodeJS.Timeout | null = null;
     private countdownInterval: NodeJS.Timeout | null = null;
@@ -475,13 +481,13 @@ class SafeManager {
                 // Use Safe SDK
                 const result = await this.safeClient.getPendingTransactions();
                 
-                // Ensure we have an array
-                if (Array.isArray(result)) {
-                    transactions = result;
-                } else if (result && Array.isArray(result.results)) {
-                    transactions = result.results;
-                } else if (result && result.data && Array.isArray(result.data)) {
-                    transactions = result.data;
+                // Safe SDK returns an object with 'results' property containing the transactions array
+                if (result && typeof result === 'object' && Array.isArray(result.results)) {
+                    // Convert Safe SDK format to our PendingTransaction format
+                    transactions = result.results.map((tx: any) => this.convertSafeTransactionFormat(tx));
+                } else if (Array.isArray(result)) {
+                    // Fallback for direct array response
+                    transactions = result.map((tx: any) => this.convertSafeTransactionFormat(tx));
                 } else {
                     console.warn('Unexpected result format from Safe SDK:', result);
                     transactions = [];
@@ -521,6 +527,46 @@ class SafeManager {
 
         const data = await response.json();
         return data.results || [];
+    }
+
+    /**
+     * Convert Safe SDK transaction format to our PendingTransaction format
+     */
+    private convertSafeTransactionFormat(tx: any): PendingTransaction {
+        return {
+            safe: tx.safe || '',
+            to: tx.to || '',
+            value: tx.value || '0',
+            data: tx.data || '0x',
+            operation: tx.operation || 0,
+            gasToken: tx.gasToken || '0x0000000000000000000000000000000000000000',
+            safeTxGas: tx.safeTxGas || 0,
+            baseGas: tx.baseGas || 0,
+            gasPrice: tx.gasPrice || '0',
+            refundReceiver: tx.refundReceiver || '0x0000000000000000000000000000000000000000',
+            nonce: tx.nonce || 0,
+            executionDate: tx.executionDate || null,
+            submissionDate: tx.submissionDate || new Date().toISOString(),
+            modified: tx.modified || new Date().toISOString(),
+            blockNumber: tx.blockNumber || null,
+            transactionHash: tx.transactionHash || null,
+            safeTxHash: tx.safeTxHash || '',
+            proposer: tx.proposer || '',
+            executor: tx.executor || null,
+            isExecuted: tx.isExecuted || false,
+            isSuccessful: tx.isSuccessful || null,
+            ethGasPrice: tx.ethGasPrice || null,
+            maxFeePerGas: tx.maxFeePerGas || null,
+            maxPriorityFeePerGas: tx.maxPriorityFeePerGas || null,
+            gasUsed: tx.gasUsed || null,
+            fee: tx.fee || null,
+            origin: tx.origin || '',
+            dataDecoded: tx.dataDecoded || null,
+            confirmationsRequired: tx.confirmationsRequired || 1,
+            confirmations: tx.confirmations || [],
+            trusted: tx.trusted || false,
+            signatures: tx.signatures || null
+        };
     }
 
     /**
@@ -1092,49 +1138,121 @@ class SafeManager {
             throw new Error('Configuration is incomplete. Please ensure required fields are filled (RPC URL, Transaction Service URL, Private Key)!');
         }
 
-        this.showCreateSafeLoading(true, 'Creating Safe...');
+        // Validate input parameters
+        if (!owners || owners.length === 0) {
+            throw new Error('At least one owner is required');
+        }
+
+        if (threshold < 1 || threshold > owners.length) {
+            throw new Error('Threshold must be between 1 and the number of owners');
+        }
+
+        // Validate all owner addresses
+        for (const owner of owners) {
+            if (!isAddress(owner)) {
+                throw new Error(`Invalid owner address: ${owner}`);
+            }
+        }
+
+        this.showCreateSafeLoading(true, 'Initializing Safe deployment...');
 
         try {
-            // Create Safe client with safeOptions for deployment
-            const safeClient = await createSafeClient({
+            // Step 1: Configure Safe account settings
+            const safeAccountConfig: SafeAccountConfig = {
+                owners: owners,
+                threshold: threshold
+            };
+
+            // Step 2: Configure Safe deployment settings
+            const safeDeploymentConfig: SafeDeploymentConfig = {
+                saltNonce: saltNonce
+            };
+
+            // Step 3: Create predicted Safe configuration
+            const predictedSafe: PredictedSafeProps = {
+                safeAccountConfig,
+                safeDeploymentConfig
+            };
+
+            this.showCreateSafeLoading(true, 'Creating Protocol Kit instance...');
+
+            // Step 4: Initialize Protocol Kit with predicted Safe
+            const protocolKit = await Safe.init({
                 provider: this.config.rpcUrl,
-                txServiceUrl: this.config.txServiceUrl,
                 signer: this.config.privateKey,
-                safeOptions: {
-                    owners: owners,
-                    threshold: threshold,
-                    saltNonce: saltNonce
-                }
+                predictedSafe
             });
 
-            // Get the predicted Safe address before deployment
-            const predictedSafeAddress = await safeClient.protocolKit.getAddress();
-            
-            // Check if Safe is already deployed
-            const isDeployed = await safeClient.protocolKit.isSafeDeployed();
-            
+            // Step 5: Get predicted Safe address
+            const predictedSafeAddress = await protocolKit.getAddress();
+            console.log('Predicted Safe address:', predictedSafeAddress);
+
+            // Step 6: Check if Safe is already deployed
+            const isDeployed = await protocolKit.isSafeDeployed();
             if (isDeployed) {
-                throw new Error('Safe with these parameters is already deployed');
+                throw new Error(`Safe with these parameters is already deployed at address: ${predictedSafeAddress}`);
             }
 
-            // Deploy the Safe by sending a dummy transaction
-            // This will trigger the Safe deployment as part of the first transaction
-            const dummyTransaction = {
-                to: predictedSafeAddress,
-                value: '0',
-                data: '0x'
-            };
+            this.showCreateSafeLoading(true, 'Creating deployment transaction...');
+
+            // Step 7: Create deployment transaction
+            const deploymentTransaction = await protocolKit.createSafeDeploymentTransaction();
+            console.log('Deployment transaction created:', deploymentTransaction);
+
+            this.showCreateSafeLoading(true, 'Executing deployment transaction...');
+
+            // Step 8: Execute deployment transaction
+            const safeProvider = protocolKit.getSafeProvider();
+            const externalSigner = await safeProvider.getExternalSigner();
             
-            const deploymentResult = await safeClient.send({ 
-                transactions: [dummyTransaction]
+            if (!externalSigner) {
+                throw new Error('Failed to get external signer for deployment');
+            }
+
+            // Send the deployment transaction
+            const transactionHash = await externalSigner.sendTransaction({
+                to: deploymentTransaction.to as `0x${string}`,
+                value: BigInt(deploymentTransaction.value),
+                data: deploymentTransaction.data as `0x${string}`,
+                chain: null // Allow the signer to determine the chain
             });
+
+            this.showCreateSafeLoading(true, 'Waiting for transaction confirmation...');
+
+            // Wait for transaction receipt using viem's waitForTransactionReceipt
+            const transactionReceipt = await waitForTransactionReceipt(externalSigner, {
+                hash: transactionHash
+            });
+
+            console.log('Deployment transaction confirmed:', transactionReceipt);
+
+            // Step 9: Connect to the deployed Safe
+            this.showCreateSafeLoading(true, 'Connecting to deployed Safe...');
             
-            console.log('Safe deployment result:', deploymentResult);
-            
-            // Wait a moment for deployment to be processed
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Update configuration with new Safe address
+            const deployedProtocolKit = await protocolKit.connect({
+                safeAddress: predictedSafeAddress
+            });
+
+            // Step 10: Verify deployment
+            const isSafeDeployed = await deployedProtocolKit.isSafeDeployed();
+            if (!isSafeDeployed) {
+                throw new Error('Safe deployment verification failed');
+            }
+
+            // Step 11: Get Safe information
+            const safeAddress = await deployedProtocolKit.getAddress();
+            const safeOwners = await deployedProtocolKit.getOwners();
+            const safeThreshold = await deployedProtocolKit.getThreshold();
+            const safeNonce = await deployedProtocolKit.getNonce();
+
+            console.log('Safe deployed successfully:', {
+                address: safeAddress,
+                owners: safeOwners,
+                threshold: safeThreshold,
+                nonce: safeNonce
+            });
+
+            // Step 12: Update configuration and UI
             this.config.safeAddress = predictedSafeAddress;
             localStorage.setItem('safeConfig', JSON.stringify(this.config));
             
@@ -1144,7 +1262,7 @@ class SafeManager {
                 safeAddressInput.value = predictedSafeAddress;
             }
 
-            // Create a new Safe client connected to the deployed Safe
+            // Create a new Safe client for the deployed Safe
             this.safeClient = await createSafeClient({
                 provider: this.config.rpcUrl,
                 txServiceUrl: this.config.txServiceUrl,
@@ -1152,18 +1270,19 @@ class SafeManager {
                 safeAddress: predictedSafeAddress
             });
 
-            // Get Safe info and update status
+            // Update Safe info
             const safeInfo: SafeInfo = {
-                address: predictedSafeAddress,
-                nonce: 0,
-                threshold: threshold,
-                owners: owners,
+                address: safeAddress,
+                nonce: safeNonce,
+                threshold: safeThreshold,
+                owners: safeOwners,
                 modules: [],
                 fallbackHandler: '',
                 guard: '',
                 version: '1.3.0'
             };
 
+            this.safeInfo = safeInfo;
             this.updateSafeStatus(safeInfo);
             this.updateConnectionStatus('Connected');
             
@@ -1175,7 +1294,8 @@ class SafeManager {
 
         } catch (error: any) {
             console.error('Safe creation failed:', error);
-            this.showError(`Safe creation failed: ${error?.message || 'Unknown error'}`);
+            const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+            this.showError(`Safe creation failed: ${errorMessage}`);
         } finally {
             this.showCreateSafeLoading(false);
         }
